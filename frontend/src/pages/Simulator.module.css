@@ -1,0 +1,87 @@
+.page { padding: 28px 32px; max-width: 1200px; }
+
+.header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+.headerLeft { display: flex; align-items: center; gap: 14px; }
+.headerIcon { width: 40px; height: 40px; border-radius: var(--radius); background: rgba(124,58,237,0.10); color: #7c3aed; display: flex; align-items: center; justify-content: center; }
+.title    { font-size: 20px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.3px; }
+.subtitle { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+.resetBtn {
+  display: flex; align-items: center; gap: 6px; padding: 8px 14px;
+  background: white; border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text-secondary); font-size: 13px; cursor: pointer;
+  box-shadow: var(--shadow-sm);
+}
+.resetBtn:hover { border-color: var(--accent); color: var(--accent); }
+
+.main { display: grid; grid-template-columns: 1fr 380px; gap: 16px; margin-bottom: 16px; }
+
+.editorCard {
+  background: white; border: 1px solid var(--border);
+  border-radius: var(--radius); display: flex; flex-direction: column;
+  overflow: hidden; box-shadow: var(--shadow-sm);
+}
+.editorHeader { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--bg-elevated); }
+.editorTitle  { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.jsonError    { font-size: 11px; color: var(--danger); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.editor {
+  flex: 1; background: #fafbfc; color: var(--text-primary);
+  font-family: var(--font-mono); font-size: 12px; line-height: 1.7;
+  border: none; padding: 16px; resize: none; min-height: 400px; outline: none;
+}
+.editor.editorError { background: rgba(220,38,38,0.02); }
+.editorFooter { padding: 12px 16px; border-top: 1px solid var(--border); }
+.submitBtn {
+  display: flex; align-items: center; gap: 7px; width: 100%; padding: 11px;
+  background: var(--accent); color: white; border: none; border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 700; justify-content: center; cursor: pointer;
+  box-shadow: 0 2px 8px rgba(26,58,143,0.2); transition: background 0.15s;
+}
+.submitBtn:hover:not(:disabled) { background: var(--accent-light); }
+.submitBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.rightPanel { display: flex; flex-direction: column; gap: 14px; }
+
+.responseCard { background: white; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm); }
+.responseStatus { display: flex; align-items: center; gap: 10px; padding: 16px 20px; font-size: 14px; font-weight: 800; border-bottom: 1px solid var(--border); }
+.accepted { color: var(--success); background: var(--success-dim); }
+.rejected { color: var(--danger);  background: var(--danger-dim); }
+
+.responseBody { padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }
+.regBlock, .errorBlock { display: flex; flex-direction: column; gap: 4px; }
+.regLabel  { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+.regValue  { font-family: var(--font-mono); font-size: 14px; color: var(--success); font-weight: 700; }
+.errorCode { font-family: var(--font-mono); font-size: 14px; color: var(--danger); font-weight: 700; }
+.responseMsg { font-size: 13px; color: var(--text-secondary); }
+.responseJson { border-top: 1px solid var(--border); padding-top: 12px; }
+.jsonLabel { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; margin-bottom: 8px; }
+.pre { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); white-space: pre-wrap; word-break: break-all; background: var(--bg-elevated); padding: 10px; border-radius: 6px; }
+
+.emptyResponse {
+  background: white; border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 48px 20px; text-align: center; box-shadow: var(--shadow-sm);
+}
+.emptyIcon  { color: var(--text-muted); margin: 0 auto 14px; }
+.emptyTitle { font-size: 14px; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px; }
+.emptySub   { font-size: 12px; color: var(--text-muted); }
+
+.schemaCard { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow-sm); }
+.schemaHeader { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; color: var(--text-secondary); margin-bottom: 12px; }
+.schemaList { display: flex; flex-direction: column; gap: 10px; }
+.schemaItem { display: flex; flex-direction: column; gap: 6px; }
+.schemaLabel { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+.schemaValue { font-size: 12px; color: var(--text-primary); font-family: var(--font-mono); }
+.schemaTags  { display: flex; flex-wrap: wrap; gap: 4px; }
+.schemaTag   { padding: 2px 8px; background: var(--accent-dim); color: var(--accent); border-radius: 4px; font-size: 11px; font-family: var(--font-mono); font-weight: 500; }
+
+.historyCard { background: white; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm); }
+.historyHeader { padding: 12px 16px; font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid var(--border); background: var(--bg-elevated); }
+.historyList { }
+.historyItem { display: flex; align-items: center; gap: 14px; padding: 11px 16px; border-bottom: 1px solid var(--border-light); cursor: pointer; transition: background 0.1s; }
+.historyItem:last-child { border-bottom: none; }
+.historyItem:hover { background: var(--bg-hover); }
+.historyStatus { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; }
+.hAccepted { color: var(--success); }
+.hRejected { color: var(--danger); }
+.historyReg  { font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); flex: 1; }
+.historyTime { font-size: 11px; color: var(--text-muted); }

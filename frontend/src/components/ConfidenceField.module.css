@@ -1,0 +1,92 @@
+.field {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  transition: border-color 0.2s;
+}
+
+.field_high   { border-color: rgba(13,159,110,0.35); background: rgba(13,159,110,0.03); }
+.field_medium { border-color: rgba(245,158,11,0.35); background: rgba(245,158,11,0.03); }
+.field_low    { border-color: rgba(220,38,38,0.40);  background: rgba(220,38,38,0.04); }
+.field_neutral{ border-color: var(--border); }
+
+.corrected { border-style: dashed; }
+
+.labelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.badges { display: flex; align-items: center; gap: 5px; }
+
+.badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
+.badge_high   { background: rgba(13,159,110,0.12); color: #0d9f6e; }
+.badge_medium { background: rgba(245,158,11,0.12); color: #d97706; }
+.badge_low    { background: rgba(220,38,38,0.12);  color: #dc2626; }
+
+.correctedBadge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background: rgba(37,99,235,0.1);
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.requiredBadge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background: rgba(220,38,38,0.1);
+  color: #dc2626;
+  font-weight: 600;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.value {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.empty { color: var(--text-secondary); font-style: italic; font-weight: 400; }
+
+.input {
+  width: 100%;
+  background: var(--input-bg, #fff);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.input:focus { border-color: var(--primary, #2563eb); }
+.inputLow { border-color: rgba(220,38,38,0.5); }
