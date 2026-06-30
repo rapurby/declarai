@@ -8,12 +8,10 @@ import ConfidenceField from '../components/ConfidenceField.jsx'
 import toast from 'react-hot-toast'
 import styles from './DeclarationDetail.module.css'
 
-// Document-level (header) fields only. Per-item fields (HS code, description,
-// quantity, unit, country of origin) live with the Line Items table below
-// instead, since a document can have multiple items each with its own values.
 const ALL_FIELDS = {
-  consignee: 'Consignee', npwp_consignee: 'NPWP Consignee',
-  declared_value: 'Declared Value', currency: 'Currency',
+  hs_code: 'HS Code', consignee: 'Consignee', npwp_consignee: 'NPWP Consignee',
+  declared_value: 'Declared Value', currency: 'Currency', quantity: 'Quantity', unit: 'Unit',
+  description: 'Description', country_of_origin: 'Country of Origin',
   gross_weight: 'Gross Weight (kg)', net_weight: 'Net Weight (kg)',
   shipper: 'Shipper', bl_number: 'B/L Number', invoice_number: 'Invoice Number',
   invoice_date: 'Invoice Date', port_of_loading: 'Port of Loading',
@@ -25,8 +23,8 @@ const ALL_FIELDS = {
   container_marks: 'Container Marks', bc11_number: 'BC 1.1 Number',
 }
 
-const MANDATORY = ['consignee','declared_value','currency']
-const TABS = ['Document Info', 'Insight', 'Audit Trail', 'CEISA Response']
+const MANDATORY = ['hs_code','consignee','declared_value','currency','quantity','unit','description','country_of_origin']
+const TABS = ['Fields', 'Line Items', 'Insight', 'Audit Trail', 'CEISA Response']
 
 export default function DeclarationDetail() {
   const { id } = useParams()
@@ -71,7 +69,7 @@ export default function DeclarationDetail() {
     } catch {}
   }, [id])
 
-  useEffect(() => { if (activeTab === 2) loadAudit() }, [activeTab])
+  useEffect(() => { if (activeTab === 3) loadAudit() }, [activeTab])
 
   const handleFieldChange = (key, val) => {
     setEditData(p => ({ ...p, [key]: val }))
@@ -93,7 +91,7 @@ export default function DeclarationDetail() {
       setDecl(res.data)
       const reg = res.data.ceisa_response?.registration_number
       toast.success(reg ? 'Accepted: ' + reg : 'Submitted to CEISA')
-      setActiveTab(2)
+      setActiveTab(3)
     } catch (e) { toast.error(e.response?.data?.detail || 'Submission failed') }
     finally { setSubmitting(false) }
   }
@@ -166,70 +164,66 @@ export default function DeclarationDetail() {
       </div>
 
       {activeTab === 0 && (
-        <div className={styles.docInfoWrap}>
-          <div className={styles.sectionLabel}>Document Information</div>
-          <div className={styles.fieldsGrid}>
-            {Object.entries(ALL_FIELDS).map(([key, label]) => (
-              <ConfidenceField key={key} label={label} fieldKey={key}
-                value={decl[key]} confidence={ext[key]?.confidence}
-                editing={editing} editValue={editData[key]}
-                onChange={handleFieldChange} corrected={!!corrected[key]}
-                required={MANDATORY.includes(key)} />
-            ))}
-          </div>
-
-          <div className={styles.sectionLabel} style={{ marginTop: 8 }}>
-            Items {decl.line_items?.length > 0 && `(${decl.line_items.length})`}
-          </div>
-          <div className={styles.lineItemsWrap}>
-            {decl.line_items?.length > 0 ? (
-              <>
-                <div className={styles.lineItemsSummary}>
-                  Each item has its own HS code &nbsp;·&nbsp;
-                  Total value: <strong>{decl.currency} {decl.line_items.reduce((s, i) => s + (i.total_value || 0), 0).toLocaleString()}</strong>
-                </div>
-                <table className={styles.lineTable}>
-                  <thead>
-                    <tr>
-                      <th>#</th><th>HS Code</th><th>Description</th><th>Qty</th><th>Unit</th>
-                      <th>Unit Price</th><th>Total Value</th><th>Origin</th><th>Conf.</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {decl.line_items.map((item, i) => (
-                      <tr key={i} className={styles.lineRow}>
-                        <td className={styles.lineNo}>{item.no ?? i+1}</td>
-                        <td className={styles.lineHs}>{item.hs_code || '—'}</td>
-                        <td className={styles.lineDesc}>{item.description || '—'}</td>
-                        <td className={styles.lineMono}>{item.quantity ?? '—'}</td>
-                        <td className={styles.lineMono}>{item.unit || '—'}</td>
-                        <td className={styles.lineMono}>{item.unit_price != null ? item.unit_price.toLocaleString() : '—'}</td>
-                        <td className={styles.lineMono}>{item.total_value != null ? item.total_value.toLocaleString() : '—'}</td>
-                        <td>{item.country_of_origin || '—'}</td>
-                        <td>
-                          <span className={styles.lineConf + ' ' + (item.confidence >= 0.85 ? styles.confHigh : item.confidence >= 0.6 ? styles.confMed : styles.confLow)}>
-                            {item.confidence != null ? `${Math.round(item.confidence * 100)}%` : '—'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </>
-            ) : (
-              <div className={styles.empty}>No line items extracted. Document may be a single-item type.</div>
-            )}
-          </div>
+        <div className={styles.fieldsGrid}>
+          {Object.entries(ALL_FIELDS).map(([key, label]) => (
+            <ConfidenceField key={key} label={label} fieldKey={key}
+              value={decl[key]} confidence={ext[key]?.confidence}
+              editing={editing} editValue={editData[key]}
+              onChange={handleFieldChange} corrected={!!corrected[key]}
+              required={MANDATORY.includes(key)} />
+          ))}
         </div>
       )}
 
       {activeTab === 1 && (
+        <div className={styles.lineItemsWrap}>
+          {decl.line_items?.length > 0 ? (
+            <>
+              <div className={styles.lineItemsSummary}>
+                {decl.line_items.length} line item(s) &nbsp;·&nbsp;
+                Total value: <strong>{decl.currency} {decl.line_items.reduce((s, i) => s + (i.total_value || 0), 0).toLocaleString()}</strong>
+              </div>
+              <table className={styles.lineTable}>
+                <thead>
+                  <tr>
+                    <th>#</th><th>HS Code</th><th>Description</th><th>Qty</th><th>Unit</th>
+                    <th>Unit Price</th><th>Total Value</th><th>Origin</th><th>Conf.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {decl.line_items.map((item, i) => (
+                    <tr key={i} className={styles.lineRow}>
+                      <td className={styles.lineNo}>{item.no ?? i+1}</td>
+                      <td className={styles.lineHs}>{item.hs_code || '—'}</td>
+                      <td className={styles.lineDesc}>{item.description || '—'}</td>
+                      <td className={styles.lineMono}>{item.quantity ?? '—'}</td>
+                      <td className={styles.lineMono}>{item.unit || '—'}</td>
+                      <td className={styles.lineMono}>{item.unit_price != null ? item.unit_price.toLocaleString() : '—'}</td>
+                      <td className={styles.lineMono}>{item.total_value != null ? item.total_value.toLocaleString() : '—'}</td>
+                      <td>{item.country_of_origin || '—'}</td>
+                      <td>
+                        <span className={styles.lineConf + ' ' + (item.confidence >= 0.85 ? styles.confHigh : item.confidence >= 0.6 ? styles.confMed : styles.confLow)}>
+                          {item.confidence != null ? `${Math.round(item.confidence * 100)}%` : '—'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          ) : (
+            <div className={styles.empty}>No line items extracted. Document may be a single-item type.</div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 2 && (
         <div className={styles.insightWrap}>
           {decl.ai_insight ? <InsightPanel insight={decl.ai_insight} /> : <div className={styles.empty}>No AI insight available.</div>}
         </div>
       )}
 
-      {activeTab === 2 && (
+      {activeTab === 3 && (
         <div className={styles.auditWrap}>
           {auditLog.length === 0 ? <div className={styles.empty}>No manual edits recorded.</div> : (
             <table className={styles.auditTable}>
@@ -249,7 +243,7 @@ export default function DeclarationDetail() {
         </div>
       )}
 
-      {activeTab === 3 && (
+      {activeTab === 4 && (
         <div className={styles.ceisaWrap}>
           {decl.ceisa_response ? (
             <div className={styles.ceisaCard}>
