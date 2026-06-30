@@ -1,4 +1,19 @@
 import logging
+import os
+
+# CRITICAL for multi-user performance: by default onnxruntime (which RapidOCR
+# runs on) spawns threads equal to ALL available CPU cores for a single
+# inference call. On a small Railway instance this means ONE operator's
+# upload can consume 100% of every core, starving the event loop and every
+# other user's unrelated requests (dashboard, list, etc.) at the same time —
+# this is what caused "kalau 1 orang upload, semua orang lain ikut lag".
+# Must be set BEFORE onnxruntime is imported anywhere (including inside
+# rapidocr_onnxruntime), so this sits at the very top of the first module
+# that touches OCR.
+os.environ.setdefault("OMP_NUM_THREADS", "2")
+os.environ.setdefault("OMP_WAIT_POLICY", "PASSIVE")  # don't busy-spin, yield CPU to other requests
+os.environ.setdefault("ORT_NUM_THREADS", "2")
+
 import numpy as np
 from app.core.config import settings
 
@@ -10,8 +25,15 @@ def get_reader():
     global _reader
     if _reader is None:
         from rapidocr_onnxruntime import RapidOCR
-        logger.info("Initializing RapidOCR engine...")
-        _reader = RapidOCR()
+        logger.info("Initializing RapidOCR engine (thread-limited for multi-user concurrency)...")
+        try:
+            # Explicitly cap onnxruntime's internal thread pool per inference
+            # session too, in case OMP env vars alone aren't honored by every
+            # backend op — belt-and-suspenders against CPU starvation.
+            _reader = RapidOCR(intra_op_num_threads=2, inter_op_num_threads=1)
+        except TypeError:
+            # Older rapidocr-onnxruntime versions may not accept these kwargs
+            _reader = RapidOCR()
         logger.info("✅ RapidOCR ready")
     return _reader
 
