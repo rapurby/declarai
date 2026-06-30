@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
-import { FileCheck, CheckCircle, AlertTriangle, Clock, Upload, ArrowRight, TrendingUp, Activity } from 'lucide-react'
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
+import { FileCheck, CheckCircle, AlertTriangle, Clock, Upload, ArrowRight, Activity } from 'lucide-react'
 import { declarationAPI } from '../services/api.js'
 import { getUser, hasPermission } from '../utils/auth.js'
 import styles from './Dashboard.module.css'
@@ -11,16 +11,22 @@ const StatusBadge = ({ status }) => <span className={`badge badge-${status}`}>{s
 export default function Dashboard() {
   const [stats, setStats]   = useState(null)
   const [recent, setRecent] = useState([])
+  const [needsReview, setNeedsReview] = useState([])
   const [loading, setLoading] = useState(true)
   const user = getUser()
   const canUpload = hasPermission(user?.role, 'upload')
 
   useEffect(() => {
-    Promise.all([declarationAPI.stats(), declarationAPI.list({ limit: 6 })])
-      .then(([s, r]) => { setStats(s.data); setRecent(r.data) })
+    Promise.all([
+      declarationAPI.stats(),
+      declarationAPI.list({ limit: 6 }),
+      declarationAPI.list({ status: 'flagged', limit: 5 }),
+    ])
+      .then(([s, r, nr]) => { setStats(s.data); setRecent(r.data); setNeedsReview(nr.data) })
       .catch(() => {
         setStats({ total: 0, accepted: 0, flagged: 0, rejected: 0, avg_processing_ms: 0, success_rate: 0, by_status: {} })
         setRecent([])
+        setNeedsReview([])
       })
       .finally(() => setLoading(false))
   }, [])
@@ -33,23 +39,18 @@ export default function Dashboard() {
   )
 
   const STATUS_COLORS = {
-    uploaded:   '#94a3b8',
-    processing: '#7c9fd1',
-    extracted:  '#2563eb',
-    validated:  '#0d9f6e',
+    uploaded:   '#1a3a8f',
+    processing: '#7c3aed',
+    extracted:  '#7c3aed',
+    validated:  '#2563eb',
     flagged:    '#d97706',
-    submitted:  '#7c3aed',
-    accepted:   '#15803d',
+    submitted:  '#0d9f6e',
+    accepted:   '#0d9f6e',
     rejected:   '#dc2626',
   }
   const pieData = Object.entries(stats?.by_status || {})
     .map(([name, value]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), value, color: STATUS_COLORS[name] || '#94a3b8' }))
     .filter(d => d.value > 0)
-
-  const barData = [
-    { name: 'Manual Process', value: 35, fill: '#cbd5e1' },
-    { name: 'DeclarAI',       value: 2,  fill: '#1a3a8f' },
-  ]
 
   const cards = [
     { label: 'Total Documents',    value: stats?.total ?? 0,            sub: 'All time',                   icon: FileCheck,     accent: '#1a3a8f' },
@@ -66,9 +67,10 @@ export default function Dashboard() {
       {/* Page header */}
       <div className={styles.pageHeader}>
         <div>
-          <h1 className={styles.pageTitle}>Dashboard</h1>
+          <h1 className={styles.pageTitle}>{user?.role === 'operator' ? 'My Dashboard' : 'Dashboard'}</h1>
           <p className={styles.pageDesc}>
             Welcome back, <strong>{user?.name}</strong> &nbsp;·&nbsp; {new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' })}
+            {user?.role === 'operator' && <> &nbsp;·&nbsp; showing your own uploads</>}
           </p>
         </div>
         {canUpload && (
@@ -130,43 +132,30 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Time comparison */}
+        {/* Needs Review — real, actionable data instead of vanity metrics */}
         <div className={styles.chartCard}>
           <div className={styles.chartHeader}>
-            <div className={styles.chartTitle}><Clock size={15} /> Processing Time (minutes)</div>
+            <div className={styles.chartTitle}><AlertTriangle size={15} /> Needs Review</div>
+            {needsReview.length > 0 && <Link to="/declarations?status=flagged" className={styles.viewAllLink}>View all</Link>}
           </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={barData} barSize={52} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f2f5" vertical={false} />
-              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#8496b0', fontSize: 11 }} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#8496b0', fontSize: 11 }} />
-              <Tooltip contentStyle={{ background: 'white', border: '1px solid #e2e6ed', borderRadius: 8, fontSize: 12 }} formatter={v => [`${v} min`]} />
-              <Bar dataKey="value" radius={[5,5,0,0]}>
-                {barData.map((e, i) => <Cell key={i} fill={e.fill} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-          <div className={styles.chartNote}>DeclarAI reduces processing time by <strong style={{color:'#0d9f6e'}}>94%</strong></div>
-        </div>
-
-        {/* Impact */}
-        <div className={styles.chartCard}>
-          <div className={styles.chartHeader}>
-            <div className={styles.chartTitle}><TrendingUp size={15} /> Key Impact Metrics</div>
-          </div>
-          <div className={styles.impactList}>
-            {[
-              { label: 'Time saved per declaration', value: '~38 min', color: '#1a3a8f' },
-              { label: 'Throughput increase',         value: '15–20×',  color: '#0d9f6e' },
-              { label: 'Error rate reduction',        value: '~95%',    color: '#d97706' },
-              { label: 'Cost saved per shipment',     value: '$2,000+', color: '#7c3aed' },
-            ].map(m => (
-              <div key={m.label} className={styles.impactRow}>
-                <span className={styles.impactLabel}>{m.label}</span>
-                <span className={styles.impactValue} style={{ color: m.color }}>{m.value}</span>
-              </div>
-            ))}
-          </div>
+          {needsReview.length > 0 ? (
+            <div className={styles.reviewList}>
+              {needsReview.map(d => (
+                <Link to={`/declarations/${d.id}`} key={d.id} className={styles.reviewItem}>
+                  <div className={styles.reviewItemMain}>
+                    <span className={styles.reviewItemFile}>{d.filename}</span>
+                    <span className={styles.reviewItemSub}>{d.consignee || 'No consignee detected'}</span>
+                  </div>
+                  <span className={'badge badge-' + d.status}>{d.status}</span>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className={styles.emptyChart}>
+              <CheckCircle size={32} strokeWidth={1.5} />
+              <span>Nothing needs review right now</span>
+            </div>
+          )}
         </div>
       </div>
 
