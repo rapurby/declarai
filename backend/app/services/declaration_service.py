@@ -13,7 +13,13 @@ from app.core.config import settings
 from app.core.database import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
-_executor = ThreadPoolExecutor(max_workers=4)
+# Reduced from 4 -> 2: each OCR job can itself spawn up to 2 onnxruntime
+# threads (see app/ocr/engine.py), so 4 concurrent executor slots could mean
+# up to 8 CPU threads fighting at once on a small instance — exactly what
+# caused other users' requests to lag whenever someone uploaded. 2 slots
+# keeps a predictable CPU budget while still letting 2 declarations process
+# in parallel.
+_executor = ThreadPoolExecutor(max_workers=2)
 
 os.makedirs(settings.FILE_STORAGE_PATH, exist_ok=True)
 
@@ -188,14 +194,43 @@ async def submit_declaration(declaration_id: str, db: AsyncSession) -> Declarati
     await db.refresh(decl)
     return decl
 
-async def get_dashboard_stats(db: AsyncSession) -> dict:
-    total      = await db.scalar(select(func.count(Declaration.id)))
-    accepted   = await db.scalar(select(func.count(Declaration.id)).where(Declaration.status == DeclarationStatus.ACCEPTED))
-    flagged    = await db.scalar(select(func.count(Declaration.id)).where(Declaration.status == DeclarationStatus.FLAGGED))
-    rejected   = await db.scalar(select(func.count(Declaration.id)).where(Declaration.status == DeclarationStatus.REJECTED))
-    processing = await db.scalar(select(func.count(Declaration.id)).where(Declaration.status == DeclarationStatus.PROCESSING))
-    validated  = await db.scalar(select(func.count(Declaration.id)).where(Declaration.status == DeclarationStatus.VALIDATED))
-    avg_time   = await db.scalar(select(func.avg(Declaration.processing_time_ms)).where(Declaration.processing_time_ms.isnot(None)))
+async def get_dashboard_stats(db: AsyncSession, operator_id: str = None) -> dict:
+    """
+    Dashboard stats. When `operator_id` is given (operator role), every
+    count is scoped to declarations THAT operator uploaded — this is each
+    operator's personal KPI view, not the org-wide total. Admin/Viewer call
+    this with operator_id=None to get the full org-wide picture.
+    """
+    if operator_id and isinstance(operator_id, str):
+        # Cast to a real UUID object rather than comparing against the raw
+        # string — asyncpg/Postgres tolerates a string here, but the UUID
+        # column's type decorator needs an actual uuid.UUID instance to bind
+        # correctly on every dialect (this also matches how get_current_user
+        # already handles the JWT "sub" claim elsewhere in the codebase).
+        import uuid as _uuid
+        operator_id = _uuid.UUID(operator_id)
+
+    base = select(func.count(Declaration.id))
+    if operator_id:
+        base = base.where(Declaration.operator_id == operator_id)
+
+    def scoped(extra_where=None):
+        q = base
+        if extra_where is not None:
+            q = q.where(extra_where)
+        return q
+
+    total      = await db.scalar(scoped())
+    accepted   = await db.scalar(scoped(Declaration.status == DeclarationStatus.ACCEPTED))
+    flagged    = await db.scalar(scoped(Declaration.status == DeclarationStatus.FLAGGED))
+    rejected   = await db.scalar(scoped(Declaration.status == DeclarationStatus.REJECTED))
+    processing = await db.scalar(scoped(Declaration.status == DeclarationStatus.PROCESSING))
+    validated  = await db.scalar(scoped(Declaration.status == DeclarationStatus.VALIDATED))
+
+    avg_q = select(func.avg(Declaration.processing_time_ms)).where(Declaration.processing_time_ms.isnot(None))
+    if operator_id:
+        avg_q = avg_q.where(Declaration.operator_id == operator_id)
+    avg_time = await db.scalar(avg_q)
 
     # Full breakdown across every status (Uploaded/Processing/Extracted/
     # Validated/Flagged/Submitted/Accepted/Rejected) — used by the dashboard's
@@ -203,7 +238,7 @@ async def get_dashboard_stats(db: AsyncSession) -> dict:
     # statuses (Accepted/Flagged/Rejected), so e.g. Validated never showed up.
     by_status = {}
     for s in DeclarationStatus:
-        count = await db.scalar(select(func.count(Declaration.id)).where(Declaration.status == s))
+        count = await db.scalar(scoped(Declaration.status == s))
         by_status[s.value] = count or 0
 
     return {
@@ -216,4 +251,5 @@ async def get_dashboard_stats(db: AsyncSession) -> dict:
         "avg_processing_ms": round(avg_time or 0, 2),
         "success_rate":      round((accepted / total * 100) if total else 0, 1),
         "by_status":         by_status,
+        "scope":             "personal" if operator_id else "organization",
     }
