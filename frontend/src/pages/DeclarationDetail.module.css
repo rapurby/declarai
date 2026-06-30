@@ -37,9 +37,6 @@
 
 .fieldsGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
 
-.docInfoWrap { display: flex; flex-direction: column; gap: 12px; }
-.sectionLabel { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); padding-bottom: 4px; border-bottom: 1px solid var(--border); }
-
 .insightWrap { padding: 4px 0; }
 .empty { color: var(--text-secondary); font-size: 13px; padding: 32px; text-align: center; }
 
