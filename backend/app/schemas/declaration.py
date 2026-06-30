@@ -57,6 +57,7 @@ class DeclarationResponse(BaseModel):
     ceisa_response: Optional[dict]
     processing_time_ms: Optional[float]
     operator_id: Optional[UUID]
+    operator_name: Optional[str] = None
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
 
@@ -73,6 +74,8 @@ class DeclarationListItem(BaseModel):
     declared_value: Optional[float]
     currency: Optional[str]
     processing_time_ms: Optional[float]
+    operator_id: Optional[UUID] = None
+    operator_name: Optional[str] = None
     created_at: Optional[datetime]
 
     class Config:
