@@ -197,6 +197,15 @@ async def get_dashboard_stats(db: AsyncSession) -> dict:
     validated  = await db.scalar(select(func.count(Declaration.id)).where(Declaration.status == DeclarationStatus.VALIDATED))
     avg_time   = await db.scalar(select(func.avg(Declaration.processing_time_ms)).where(Declaration.processing_time_ms.isnot(None)))
 
+    # Full breakdown across every status (Uploaded/Processing/Extracted/
+    # Validated/Flagged/Submitted/Accepted/Rejected) — used by the dashboard's
+    # Status Distribution chart, which previously only rendered 3 of the 8
+    # statuses (Accepted/Flagged/Rejected), so e.g. Validated never showed up.
+    by_status = {}
+    for s in DeclarationStatus:
+        count = await db.scalar(select(func.count(Declaration.id)).where(Declaration.status == s))
+        by_status[s.value] = count or 0
+
     return {
         "total":             total or 0,
         "accepted":          accepted or 0,
@@ -206,4 +215,5 @@ async def get_dashboard_stats(db: AsyncSession) -> dict:
         "waiting_review":    (flagged or 0) + (validated or 0),
         "avg_processing_ms": round(avg_time or 0, 2),
         "success_rate":      round((accepted / total * 100) if total else 0, 1),
+        "by_status":         by_status,
     }

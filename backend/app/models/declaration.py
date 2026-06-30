@@ -1,6 +1,7 @@
 from sqlalchemy import Column, String, Float, DateTime, JSON, Text, Integer
 from sqlalchemy import Enum as SAEnum, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
 import enum, uuid
@@ -32,6 +33,15 @@ class Declaration(Base):
     document_type = Column(SAEnum(DocumentType), default=DocumentType.UNKNOWN, nullable=True)
     operator_id   = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     session_id    = Column(String, nullable=True, index=True)
+
+    # lazy="selectin" -> SQLAlchemy auto-fetches the related user in one
+    # extra batched query whenever a Declaration is loaded, so `operator_name`
+    # below works without needing an explicit join at every call site.
+    operator = relationship("User", foreign_keys=[operator_id], lazy="selectin")
+
+    @property
+    def operator_name(self):
+        return self.operator.full_name if self.operator else None
 
     # ── Core CEISA Fields ──────────────────────────────────────────
     hs_code            = Column(String, nullable=True)

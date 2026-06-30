@@ -72,16 +72,20 @@ export default function Declarations() {
         </div>
       ) : (
         <div className={styles.tableCard}>
-          <div className={styles.tableHead}>
+          <div className={styles.tableHead} style={{ gridTemplateColumns: user?.role !== 'operator'
+            ? '1.8fr 1fr 1.7fr 1.2fr 1.3fr 1fr 0.7fr 80px' : undefined }}>
             <span>File</span><span>HS Code</span><span>Consignee</span>
-            <span>Value</span><span>Status</span><span>Time</span><span></span>
+            <span>Value</span>{user?.role !== 'operator' && <span>Uploaded By</span>}<span>Status</span><span>Time</span><span></span>
           </div>
           {filtered.map(d => (
-            <Link to={`/declarations/${d.id}`} key={d.id} className={styles.row}>
+            <Link to={`/declarations/${d.id}`} key={d.id} className={styles.row}
+              style={{ gridTemplateColumns: user?.role !== 'operator'
+                ? '1.8fr 1fr 1.7fr 1.2fr 1.3fr 1fr 0.7fr 80px' : undefined }}>
               <span className={styles.filename}>{d.filename}</span>
               <span className={styles.mono}>{d.hs_code || '—'}</span>
               <span className={styles.truncate}>{d.consignee || '—'}</span>
               <span className={styles.mono}>{d.currency} {d.declared_value?.toLocaleString() || '—'}</span>
+              {user?.role !== 'operator' && <span className={styles.truncate}>{d.operator_name || '—'}</span>}
               <span><span className={`badge badge-${d.status}`}>{d.status}</span></span>
               <span className={styles.time}>{d.processing_time_ms ? `${(d.processing_time_ms/1000).toFixed(1)}s` : '—'}</span>
               <span className={styles.actions}>
