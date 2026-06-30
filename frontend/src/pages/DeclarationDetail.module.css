@@ -1,4 +1,4 @@
-﻿.page { display: flex; flex-direction: column; gap: 16px; }
+.page { display: flex; flex-direction: column; gap: 16px; }
 
 .loading { display: flex; align-items: center; gap: 10px; padding: 40px; color: var(--text-secondary); }
 .spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; }
@@ -36,6 +36,9 @@
 .tabActive { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
 
 .fieldsGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+
+.docInfoWrap { display: flex; flex-direction: column; gap: 12px; }
+.sectionLabel { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); padding-bottom: 4px; border-bottom: 1px solid var(--border); }
 
 .insightWrap { padding: 4px 0; }
 .empty { color: var(--text-secondary); font-size: 13px; padding: 32px; text-align: center; }
