@@ -3,6 +3,13 @@ from typing import Optional
 
 class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://postgres:password@localhost:5432/declarai"
+
+    @property
+    def ASYNC_DATABASE_URL(self) -> str:
+        url = self.DATABASE_URL
+        if url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return url
     ANTHROPIC_API_KEY: str = "sk-ant-placeholder"
     CEISA_API_URL: str = "https://sandbox.beacukai.go.id/api"
     CEISA_API_KEY: str = ""
