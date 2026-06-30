@@ -65,3 +65,21 @@
   .fieldsGrid { grid-template-columns: 1fr; }
   .tabs { overflow-x: auto; }
 }
+
+
+/* Line Items */
+.lineItemsWrap { overflow-x: auto; }
+.lineItemsSummary { font-size: 13px; color: var(--text-secondary); padding: 0 0 12px; }
+.lineTable { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 800px; }
+.lineTable th { background: #f6f8fb; color: #8496b0; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; padding: 8px 10px; text-align: left; border-bottom: 1px solid #e2e6ed; }
+.lineRow { border-bottom: 1px solid #f0f2f5; transition: background 0.1s; }
+.lineRow:hover { background: #f8fafc; }
+.lineRow td { padding: 9px 10px; vertical-align: top; }
+.lineNo { color: #8496b0; font-size: 11px; width: 28px; }
+.lineHs { font-family: monospace; font-size: 13px; font-weight: 600; color: var(--primary); white-space: nowrap; }
+.lineDesc { max-width: 220px; }
+.lineMono { font-family: monospace; white-space: nowrap; }
+.lineConf { font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 4px; }
+.confHigh { background: rgba(13,159,110,0.1); color: #0d9f6e; }
+.confMed  { background: rgba(217,119,6,0.1);  color: #d97706; }
+.confLow  { background: rgba(220,38,38,0.1);  color: #dc2626; }

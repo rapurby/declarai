@@ -5,7 +5,6 @@ import Dashboard from './pages/Dashboard.jsx'
 import Upload from './pages/Upload.jsx'
 import Declarations from './pages/Declarations.jsx'
 import DeclarationDetail from './pages/DeclarationDetail.jsx'
-import Simulator from './pages/Simulator.jsx'
 import Login from './pages/Login.jsx'
 import Register from './pages/Register.jsx'
 import Users from './pages/Users.jsx'
@@ -34,7 +33,6 @@ export default function App() {
           <Route path="upload"           element={<Upload />} />
           <Route path="declarations"     element={<Declarations />} />
           <Route path="declarations/:id" element={<DeclarationDetail />} />
-          <Route path="simulator"        element={<Simulator />} />
           <Route path="users"            element={<Users />} />
         </Route>
       </Routes>

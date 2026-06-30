@@ -24,7 +24,7 @@ const ALL_FIELDS = {
 }
 
 const MANDATORY = ['hs_code','consignee','declared_value','currency','quantity','unit','description','country_of_origin']
-const TABS = ['Fields', 'Insight', 'Audit Trail', 'CEISA Response']
+const TABS = ['Fields', 'Line Items', 'Insight', 'Audit Trail', 'CEISA Response']
 
 export default function DeclarationDetail() {
   const { id } = useParams()
@@ -69,7 +69,7 @@ export default function DeclarationDetail() {
     } catch {}
   }, [id])
 
-  useEffect(() => { if (activeTab === 2) loadAudit() }, [activeTab])
+  useEffect(() => { if (activeTab === 3) loadAudit() }, [activeTab])
 
   const handleFieldChange = (key, val) => {
     setEditData(p => ({ ...p, [key]: val }))
@@ -176,12 +176,54 @@ export default function DeclarationDetail() {
       )}
 
       {activeTab === 1 && (
+        <div className={styles.lineItemsWrap}>
+          {decl.line_items?.length > 0 ? (
+            <>
+              <div className={styles.lineItemsSummary}>
+                {decl.line_items.length} line item(s) &nbsp;·&nbsp;
+                Total value: <strong>{decl.currency} {decl.line_items.reduce((s, i) => s + (i.total_value || 0), 0).toLocaleString()}</strong>
+              </div>
+              <table className={styles.lineTable}>
+                <thead>
+                  <tr>
+                    <th>#</th><th>HS Code</th><th>Description</th><th>Qty</th><th>Unit</th>
+                    <th>Unit Price</th><th>Total Value</th><th>Origin</th><th>Conf.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {decl.line_items.map((item, i) => (
+                    <tr key={i} className={styles.lineRow}>
+                      <td className={styles.lineNo}>{item.no ?? i+1}</td>
+                      <td className={styles.lineHs}>{item.hs_code || '—'}</td>
+                      <td className={styles.lineDesc}>{item.description || '—'}</td>
+                      <td className={styles.lineMono}>{item.quantity ?? '—'}</td>
+                      <td className={styles.lineMono}>{item.unit || '—'}</td>
+                      <td className={styles.lineMono}>{item.unit_price != null ? item.unit_price.toLocaleString() : '—'}</td>
+                      <td className={styles.lineMono}>{item.total_value != null ? item.total_value.toLocaleString() : '—'}</td>
+                      <td>{item.country_of_origin || '—'}</td>
+                      <td>
+                        <span className={styles.lineConf + ' ' + (item.confidence >= 0.85 ? styles.confHigh : item.confidence >= 0.6 ? styles.confMed : styles.confLow)}>
+                          {item.confidence != null ? `${Math.round(item.confidence * 100)}%` : '—'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          ) : (
+            <div className={styles.empty}>No line items extracted. Document may be a single-item type.</div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 2 && (
         <div className={styles.insightWrap}>
           {decl.ai_insight ? <InsightPanel insight={decl.ai_insight} /> : <div className={styles.empty}>No AI insight available.</div>}
         </div>
       )}
 
-      {activeTab === 2 && (
+      {activeTab === 3 && (
         <div className={styles.auditWrap}>
           {auditLog.length === 0 ? <div className={styles.empty}>No manual edits recorded.</div> : (
             <table className={styles.auditTable}>
@@ -201,7 +243,7 @@ export default function DeclarationDetail() {
         </div>
       )}
 
-      {activeTab === 3 && (
+      {activeTab === 4 && (
         <div className={styles.ceisaWrap}>
           {decl.ceisa_response ? (
             <div className={styles.ceisaCard}>

@@ -1,29 +1,30 @@
-﻿import { useState, useCallback, useEffect, useRef } from 'react'
+﻿import { useState, useCallback, useRef } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useNavigate } from 'react-router-dom'
-import { Upload as UploadIcon, File, CheckCircle, AlertCircle, Loader, FileText, Zap, Shield, Camera, QrCode, X } from 'lucide-react'
+import { Upload as UploadIcon, File, CheckCircle, AlertCircle, Loader, Zap, Shield, Camera, QrCode, X } from 'lucide-react'
 import { declarationAPI, scanAPI, getWsUrl } from '../services/api.js'
 import { getUser, hasPermission } from '../utils/auth.js'
-import InsightPanel from '../components/InsightPanel.jsx'
 import toast from 'react-hot-toast'
 import styles from './Upload.module.css'
 
-const STAGES = [
-  { key: 'upload',   label: 'Uploading document' },
-  { key: 'ocr',      label: 'OCR text extraction' },
-  { key: 'llm',      label: 'AI field extraction' },
-  { key: 'validate', label: 'CEISA compliance check' },
-  { key: 'insight',  label: 'Generating AI insight' },
+const PIPELINE_STAGES = [
+  { key: 'upload',   label: 'Document received' },
+  { key: 'ocr',      label: 'Processing OCR' },
+  { key: 'llm',      label: 'Extracting document information' },
+  { key: 'validate', label: 'Validating extracted data' },
   { key: 'done',     label: 'Processing complete' },
 ]
 
+const STAGE_ORDER = ['upload', 'ocr', 'llm', 'validate', 'done']
+
 export default function Upload() {
-  const [file, setFile] = useState(null)
+  const [file, setFile]           = useState(null)
   const [uploading, setUploading] = useState(false)
-  const [stage, setStage] = useState(-1)
-  const [progress, setProgress] = useState(0)
-  const [result, setResult] = useState(null)
-  const [mode, setMode] = useState(null) // null | 'file' | 'qr'
+  const [currentStage, setCurrentStage] = useState(null)
+  const [stageLabel, setStageLabel]     = useState('')
+  const [result, setResult]       = useState(null)
+  const [error, setError]         = useState(null)
+  const [mode, setMode]           = useState(null)
   const [qrSession, setQrSession] = useState(null)
   const wsRef = useRef(null)
   const navigate = useNavigate()
@@ -44,28 +45,61 @@ export default function Upload() {
     onDrop, accept: { 'image/*': [], 'application/pdf': [] }, maxSize: 10 * 1024 * 1024, multiple: false,
   })
 
+  const connectWs = (declarationId) => {
+    const wsUrl = getWsUrl('/ws/declaration/' + declarationId)
+    try {
+      const ws = new WebSocket(wsUrl)
+      ws.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data)
+          if (data.type === 'stage') {
+            setCurrentStage(data.stage)
+            setStageLabel(data.label || data.stage)
+          } else if (data.type === 'complete') {
+            setCurrentStage('done')
+            setStageLabel('Processing complete')
+            ws.close()
+            // Load full declaration result
+            declarationAPI.get(declarationId).then(r => {
+              setResult(r.data)
+              setUploading(false)
+              toast.success('Document processed successfully!')
+            })
+          } else if (data.type === 'error') {
+            setError(data.message || 'Processing failed')
+            setUploading(false)
+            ws.close()
+            toast.error('Processing failed')
+          }
+        } catch {}
+      }
+      ws.onerror = () => {}
+      wsRef.current = ws
+    } catch {}
+  }
+
   const handleUpload = async () => {
     if (!file) return
-    setUploading(true); setStage(0)
-    setTimeout(() => setStage(1), 800)
-    setTimeout(() => setStage(2), 2200)
-    setTimeout(() => setStage(3), 3600)
-    setTimeout(() => setStage(4), 4800)
+    setUploading(true)
+    setError(null)
+    setCurrentStage('upload')
+    setStageLabel('Document received')
+
     try {
-      const res = await declarationAPI.upload(file, setProgress)
-      setStage(5); setResult(res.data)
-      toast.success('Document processed successfully!')
+      const res = await declarationAPI.upload(file)
+      const { declaration_id } = res.data
+      connectWs(declaration_id)
     } catch (e) {
       toast.error(e.response?.data?.detail || 'Upload failed')
-      setStage(-1)
-    } finally { setUploading(false) }
+      setUploading(false)
+      setCurrentStage(null)
+    }
   }
 
   const startQrSession = async () => {
     try {
       const res = await scanAPI.createSession()
       setQrSession(res.data)
-      // Open WebSocket waiting for scan completion
       const wsUrl = getWsUrl('/ws/scan/' + res.data.token)
       const ws = new WebSocket(wsUrl)
       ws.onmessage = (e) => {
@@ -73,8 +107,8 @@ export default function Upload() {
           const data = JSON.parse(e.data)
           if (data.type === 'scan_complete') {
             ws.close()
+            toast.success('Document received from phone!')
             navigate('/declarations/' + data.declaration_id)
-            toast.success('Phone scan received!')
           }
         } catch {}
       }
@@ -82,14 +116,11 @@ export default function Upload() {
     } catch { toast.error('Could not create scan session') }
   }
 
-  const cancelQr = () => {
-    wsRef.current?.close()
-    setQrSession(null)
-    setMode(null)
-  }
+  const cancelQr = () => { wsRef.current?.close(); setQrSession(null); setMode(null) }
 
-  // QR code URL for display (link to mobile scan page)
   const qrUrl = qrSession ? window.location.origin + '/scan/' + qrSession.token : null
+
+  const stageIndex = STAGE_ORDER.indexOf(currentStage)
 
   if (result) {
     const val = result.validation_result || {}
@@ -99,18 +130,16 @@ export default function Upload() {
           <div className={styles.resultIcon + ' ' + (val.valid ? styles.success : styles.warning)}>
             {val.valid ? <CheckCircle size={28}/> : <AlertCircle size={28}/>}
           </div>
-          <h2 className={styles.resultTitle}>{val.valid ? 'Ready to Submit to CEISA' : 'Manual Review Required'}</h2>
-          <p className={styles.resultSub}>
-            {val.valid ? 'All fields extracted and validated.' : val.flagged_fields?.length + ' field(s) require review.'}
-          </p>
+          <h2 className={styles.resultTitle}>{val.valid ? 'Ready to Submit' : 'Manual Review Required'}</h2>
+          <p className={styles.resultSub}>{val.valid ? 'All fields extracted and validated.' : `${val.flagged_fields?.length || 0} field(s) require review.`}</p>
           <div className={styles.resultMeta}>
             <div className={styles.metaItem}><span className={styles.metaLabel}>Score</span><span className={styles.metaValue}>{val.score ?? '—'}/100</span></div>
-            <div className={styles.metaItem}><span className={styles.metaLabel}>Time</span><span className={styles.metaValue}>{result.processing_time_ms ? (result.processing_time_ms/1000).toFixed(2)+'s' : '—'}</span></div>
+            <div className={styles.metaItem}><span className={styles.metaLabel}>Time</span><span className={styles.metaValue}>{result.processing_time_ms ? (result.processing_time_ms/1000).toFixed(1)+'s' : '—'}</span></div>
+            <div className={styles.metaItem}><span className={styles.metaLabel}>Items</span><span className={styles.metaValue}>{result.line_items?.length ?? 1}</span></div>
             <div className={styles.metaItem}><span className={styles.metaLabel}>Status</span><span className={'badge badge-' + result.status}>{result.status}</span></div>
           </div>
-          {result.ai_insight && <InsightPanel insight={result.ai_insight} />}
           <div className={styles.resultActions}>
-            <button className={styles.secondaryBtn} onClick={() => { setFile(null); setResult(null); setStage(-1); setMode(null) }}>Upload Another</button>
+            <button className={styles.secondaryBtn} onClick={() => { setFile(null); setResult(null); setCurrentStage(null); setMode(null) }}>Upload Another</button>
             <button className={styles.primaryBtn} onClick={() => navigate('/declarations/' + result.id)}>View & Submit →</button>
           </div>
         </div>
@@ -130,7 +159,7 @@ export default function Upload() {
           <button className={styles.modeCard} onClick={() => setMode('qr')}>
             <Camera size={32} className={styles.modeIcon} />
             <div className={styles.modeTitle}>Scan via Phone</div>
-            <div className={styles.modeSub}>Generate a QR code, scan with your phone camera, and the result appears here automatically.</div>
+            <div className={styles.modeSub}>Generate a QR code, scan with your phone, capture multi-page documents.</div>
           </button>
           <button className={styles.modeCard} onClick={() => setMode('file')}>
             <UploadIcon size={32} className={styles.modeIcon} />
@@ -144,8 +173,7 @@ export default function Upload() {
         <div className={styles.qrSection}>
           <div className={styles.qrCard}>
             <div className={styles.qrHeader}>
-              <QrCode size={18} />
-              <span>Mobile Scan Session</span>
+              <QrCode size={18} /><span>Mobile Scan Session</span>
               <button className={styles.qrClose} onClick={cancelQr}><X size={14}/></button>
             </div>
             {!qrSession ? (
@@ -156,16 +184,12 @@ export default function Upload() {
             ) : (
               <div className={styles.qrDisplay}>
                 <div className={styles.qrCode}>
-                  <img
-                    src={'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(qrUrl)}
-                    alt="QR Code"
-                    width={200} height={200}
-                  />
+                  <img src={'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(qrUrl)} alt="QR Code" width={200} height={200} />
                 </div>
                 <div className={styles.qrInstructions}>
                   <p>1. Open your phone camera and scan this QR code</p>
-                  <p>2. The scan page will open on your phone</p>
-                  <p>3. Capture the document with your camera</p>
+                  <p>2. Take photos of each document page</p>
+                  <p>3. Add a document name, then send</p>
                   <p>4. This page will update automatically</p>
                   <div className={styles.qrWaiting}><Loader size={14} className={styles.spin}/> Waiting for phone...</div>
                   <div className={styles.qrExpiry}>Session expires in 10 minutes</div>
@@ -197,19 +221,26 @@ export default function Upload() {
 
           {uploading && (
             <div className={styles.pipeline}>
-              <div className={styles.progressBar}><div className={styles.progressFill} style={{ width: progress + '%' }}/></div>
+              <div className={styles.pipelineTitle}>Processing your document...</div>
               <div className={styles.stages}>
-                {STAGES.map((s, i) => (
-                  <div key={s.key} className={styles.stage + (i < stage ? ' ' + styles.done : '') + (i === stage ? ' ' + styles.active : '')}>
-                    <div className={styles.stageDot}>
-                      {i < stage ? <CheckCircle size={14}/> : i === stage ? <Loader size={14} className={styles.spin}/> : <div className={styles.stageDotEmpty}/>}
+                {PIPELINE_STAGES.map((s, i) => {
+                  const idx = STAGE_ORDER.indexOf(s.key)
+                  const isDone   = stageIndex > idx
+                  const isActive = stageIndex === idx
+                  return (
+                    <div key={s.key} className={styles.stage + (isDone ? ' ' + styles.done : '') + (isActive ? ' ' + styles.active : '')}>
+                      <div className={styles.stageDot}>
+                        {isDone ? <CheckCircle size={14}/> : isActive ? <Loader size={14} className={styles.spin}/> : <div className={styles.stageDotEmpty}/>}
+                      </div>
+                      <span>{isActive ? stageLabel : s.label}</span>
                     </div>
-                    <span>{s.label}</span>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}
+
+          {error && <div className={styles.errorBox}><AlertCircle size={14}/> {error}</div>}
 
           {file && !uploading && (
             <button className={styles.submitBtn2} onClick={handleUpload}><Zap size={15}/> Process with AI</button>

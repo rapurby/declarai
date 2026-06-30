@@ -70,6 +70,9 @@ class Declaration(Base):
     container_marks  = Column(String,  nullable=True)
     bc11_number      = Column(String,  nullable=True)
 
+    # ── Line Items (per-item HS codes, extracted as array) ────────
+    line_items         = Column(JSON, nullable=True)
+
     # ── Pipeline Results ──────────────────────────────────────────
     ocr_raw            = Column(JSON, nullable=True)
     llm_extracted      = Column(JSON, nullable=True)

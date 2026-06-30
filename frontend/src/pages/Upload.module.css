@@ -104,3 +104,13 @@
 .submitBtn2 { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 28px; background: var(--primary); color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; width: 100%; max-width: 320px; margin: 0 auto; }
 
 @media (max-width: 480px) { .modeGrid { grid-template-columns: 1fr; } .qrDisplay { flex-direction: column; align-items: center; } }
+
+/* Forbidden */
+.forbidden { padding: 60px 32px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; color: var(--text-secondary); }
+.forbiddenTitle { font-size: 18px; font-weight: 700; color: var(--text-primary); }
+.forbiddenSub { font-size: 14px; }
+
+/* Pipeline stage label */
+.pipelineTitle { font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 14px; }
+.stageDotEmpty { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--border); }
+.errorBox { display: flex; align-items: center; gap: 8px; color: var(--danger); background: var(--danger-dim); border: 1px solid rgba(220,38,38,0.15); border-radius: 8px; padding: 10px 12px; font-size: 13px; margin-top: 12px; }

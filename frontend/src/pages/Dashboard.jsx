@@ -44,11 +44,13 @@ export default function Dashboard() {
   ]
 
   const cards = [
-    { label: 'Total Declarations', value: stats?.total ?? 0,   sub: 'All time',           icon: FileCheck,     accent: '#1a3a8f' },
-    { label: 'Accepted by CEISA',  value: stats?.accepted ?? 0, sub: `${stats?.success_rate ?? 0}% success rate`, icon: CheckCircle, accent: '#0d9f6e' },
-    { label: 'Needs Review',       value: stats?.flagged ?? 0,  sub: 'Flagged for operator',icon: AlertTriangle, accent: '#d97706' },
+    { label: 'Total Documents',    value: stats?.total ?? 0,            sub: 'All time',                   icon: FileCheck,     accent: '#1a3a8f' },
+    { label: 'Processing',         value: stats?.processing ?? 0,       sub: 'Currently in progress',      icon: Activity,      accent: '#7c3aed' },
+    { label: 'Waiting Review',     value: stats?.waiting_review ?? 0,   sub: 'Flagged + validated',        icon: AlertTriangle, accent: '#d97706' },
+    { label: 'Accepted',           value: stats?.accepted ?? 0,         sub: `${stats?.success_rate ?? 0}% success rate`, icon: CheckCircle, accent: '#0d9f6e' },
+    { label: 'Rejected',           value: stats?.rejected ?? 0,         sub: 'Could not submit',           icon: AlertTriangle, accent: '#dc2626' },
     { label: 'Avg Process Time',   value: stats?.avg_processing_ms ? `${(stats.avg_processing_ms/1000).toFixed(1)}s` : '< 2s',
-      sub: 'vs 30–40 min manual', icon: Clock, accent: '#7c3aed' },
+      sub: 'vs 30–40 min manual', icon: Clock, accent: '#0891b2' },
   ]
 
   return (

@@ -66,9 +66,11 @@ export const adminAPI = {
 export const scanAPI = {
   createSession: () => api.post('/scan/session'),
   getSession: (token) => api.get(`/scan/session/${token}`),
-  uploadScan: (token, file) => {
+  uploadScan: (token, files, docName) => {
     const fd = new FormData()
-    fd.append('file', file)
+    const arr = Array.isArray(files) ? files : [files]
+    arr.forEach(f => fd.append('files', f))
+    if (docName) fd.append('doc_name', docName)
     return api.post(`/scan/upload/${token}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
   },
 }
