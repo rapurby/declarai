@@ -32,12 +32,13 @@ async def list_declarations(
     result = await db.execute(q)
     return result.scalars().all()
 
-@router.get("/declarations/stats", summary="Dashboard statistics")
+@router.get("/declarations/stats", summary="Dashboard statistics — personal totals for Operator, org-wide for Admin/Viewer")
 async def dashboard_stats(
     current_user: User = Depends(require_role("admin", "operator", "viewer")),
     db: AsyncSession = Depends(get_db),
 ):
-    return await get_dashboard_stats(db)
+    operator_id = str(current_user.id) if current_user.role == "operator" else None
+    return await get_dashboard_stats(db, operator_id=operator_id)
 
 @router.get("/declarations/{declaration_id}", response_model=DeclarationResponse)
 async def get_declaration(
