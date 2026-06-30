@@ -188,19 +188,14 @@ async def submit_declaration(declaration_id: str, db: AsyncSession) -> Declarati
     await db.refresh(decl)
     return decl
 
-async def get_dashboard_stats(db: AsyncSession, operator_id: str = None) -> dict:
-    base_filter = (Declaration.operator_id == operator_id) if operator_id else None
-
-    def _w(q):
-        return q.where(base_filter) if base_filter is not None else q
-
-    total      = await db.scalar(_w(select(func.count(Declaration.id))))
-    accepted   = await db.scalar(_w(select(func.count(Declaration.id)).where(Declaration.status == DeclarationStatus.ACCEPTED)))
-    flagged    = await db.scalar(_w(select(func.count(Declaration.id)).where(Declaration.status == DeclarationStatus.FLAGGED)))
-    rejected   = await db.scalar(_w(select(func.count(Declaration.id)).where(Declaration.status == DeclarationStatus.REJECTED)))
-    processing = await db.scalar(_w(select(func.count(Declaration.id)).where(Declaration.status == DeclarationStatus.PROCESSING)))
-    validated  = await db.scalar(_w(select(func.count(Declaration.id)).where(Declaration.status == DeclarationStatus.VALIDATED)))
-    avg_time   = await db.scalar(_w(select(func.avg(Declaration.processing_time_ms)).where(Declaration.processing_time_ms.isnot(None))))
+async def get_dashboard_stats(db: AsyncSession) -> dict:
+    total      = await db.scalar(select(func.count(Declaration.id)))
+    accepted   = await db.scalar(select(func.count(Declaration.id)).where(Declaration.status == DeclarationStatus.ACCEPTED))
+    flagged    = await db.scalar(select(func.count(Declaration.id)).where(Declaration.status == DeclarationStatus.FLAGGED))
+    rejected   = await db.scalar(select(func.count(Declaration.id)).where(Declaration.status == DeclarationStatus.REJECTED))
+    processing = await db.scalar(select(func.count(Declaration.id)).where(Declaration.status == DeclarationStatus.PROCESSING))
+    validated  = await db.scalar(select(func.count(Declaration.id)).where(Declaration.status == DeclarationStatus.VALIDATED))
+    avg_time   = await db.scalar(select(func.avg(Declaration.processing_time_ms)).where(Declaration.processing_time_ms.isnot(None)))
 
     # Full breakdown across every status (Uploaded/Processing/Extracted/
     # Validated/Flagged/Submitted/Accepted/Rejected) — used by the dashboard's
@@ -208,7 +203,7 @@ async def get_dashboard_stats(db: AsyncSession, operator_id: str = None) -> dict
     # statuses (Accepted/Flagged/Rejected), so e.g. Validated never showed up.
     by_status = {}
     for s in DeclarationStatus:
-        count = await db.scalar(_w(select(func.count(Declaration.id)).where(Declaration.status == s)))
+        count = await db.scalar(select(func.count(Declaration.id)).where(Declaration.status == s))
         by_status[s.value] = count or 0
 
     return {
