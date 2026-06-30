@@ -1,4 +1,4 @@
-﻿.page { padding: 28px 32px; max-width: 1280px; }
+.page { padding: 28px 32px; max-width: 1280px; }
 
 .loading { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 12px; color: var(--text-muted); font-size: 13px; }
 .spinner { width: 28px; height: 28px; border: 2.5px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
@@ -37,9 +37,21 @@
   background: white; border: 1px solid var(--border); border-radius: var(--radius);
   padding: 20px; box-shadow: var(--shadow-sm);
 }
-.chartHeader { margin-bottom: 16px; }
+.chartHeader { margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; }
 .chartTitle  { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; color: var(--text-primary); }
 .chartNote   { font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 8px; }
+
+.reviewList { display: flex; flex-direction: column; gap: 2px; }
+.reviewItem {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 8px; border-radius: 6px; text-decoration: none;
+  border-bottom: 1px solid var(--border-light, #f0f2f5);
+}
+.reviewItem:last-child { border-bottom: none; }
+.reviewItem:hover { background: var(--bg-hover, #f7f8fa); }
+.reviewItemMain { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.reviewItemFile { font-size: 12.5px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.reviewItemSub  { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .pieWrap { }
 .pieLegend { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
