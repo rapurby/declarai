@@ -55,6 +55,7 @@ class DeclarationResponse(BaseModel):
     ai_insight: Optional[dict]
     validation_result: Optional[dict]
     ceisa_response: Optional[dict]
+    line_items: Optional[list] = None
     processing_time_ms: Optional[float]
     operator_id: Optional[UUID]
     operator_name: Optional[str] = None
