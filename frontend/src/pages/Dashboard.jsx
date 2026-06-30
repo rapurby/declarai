@@ -19,7 +19,7 @@ export default function Dashboard() {
     Promise.all([declarationAPI.stats(), declarationAPI.list({ limit: 6 })])
       .then(([s, r]) => { setStats(s.data); setRecent(r.data) })
       .catch(() => {
-        setStats({ total: 0, accepted: 0, flagged: 0, rejected: 0, avg_processing_ms: 0, success_rate: 0 })
+        setStats({ total: 0, accepted: 0, flagged: 0, rejected: 0, avg_processing_ms: 0, success_rate: 0, by_status: {} })
         setRecent([])
       })
       .finally(() => setLoading(false))
@@ -32,11 +32,19 @@ export default function Dashboard() {
     </div>
   )
 
-  const pieData = [
-    { name: 'Accepted', value: stats?.accepted || 0, color: '#0d9f6e' },
-    { name: 'Flagged',  value: stats?.flagged  || 0, color: '#d97706' },
-    { name: 'Rejected', value: stats?.rejected || 0, color: '#dc2626' },
-  ].filter(d => d.value > 0)
+  const STATUS_COLORS = {
+    uploaded:   '#94a3b8',
+    processing: '#7c9fd1',
+    extracted:  '#2563eb',
+    validated:  '#0d9f6e',
+    flagged:    '#d97706',
+    submitted:  '#7c3aed',
+    accepted:   '#15803d',
+    rejected:   '#dc2626',
+  }
+  const pieData = Object.entries(stats?.by_status || {})
+    .map(([name, value]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), value, color: STATUS_COLORS[name] || '#94a3b8' }))
+    .filter(d => d.value > 0)
 
   const barData = [
     { name: 'Manual Process', value: 35, fill: '#cbd5e1' },
@@ -172,7 +180,9 @@ export default function Dashboard() {
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>File</th><th>HS Code</th><th>Consignee</th><th>Value</th><th>Status</th><th>Process Time</th>
+                <th>File</th><th>HS Code</th><th>Consignee</th><th>Value</th>
+                {user?.role !== 'operator' && <th>Uploaded By</th>}
+                <th>Status</th><th>Process Time</th>
               </tr>
             </thead>
             <tbody>
@@ -182,6 +192,7 @@ export default function Dashboard() {
                   <td className={styles.tdMono}>{d.hs_code || '—'}</td>
                   <td className={styles.tdTrunc}>{d.consignee || '—'}</td>
                   <td className={styles.tdMono}>{d.currency} {d.declared_value?.toLocaleString() || '—'}</td>
+                  {user?.role !== 'operator' && <td className={styles.tdTrunc}>{d.operator_name || '—'}</td>}
                   <td><StatusBadge status={d.status} /></td>
                   <td className={styles.tdMono}>{d.processing_time_ms ? `${(d.processing_time_ms/1000).toFixed(1)}s` : '—'}</td>
                 </tr>
