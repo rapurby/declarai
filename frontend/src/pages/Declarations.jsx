@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Search, Filter, Trash2, ChevronRight, FileText, Upload } from 'lucide-react'
 import { useDeclarations } from '../hooks/useDeclarations.js'
 import { declarationAPI } from '../services/api.js'
@@ -10,8 +10,9 @@ import styles from './Declarations.module.css'
 const STATUSES = ['', 'uploaded', 'processing', 'extracted', 'validated', 'flagged', 'submitted', 'accepted', 'rejected']
 
 export default function Declarations() {
+  const [searchParams] = useSearchParams()
   const [search, setSearch]           = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '')
   const { data, loading, refetch }    = useDeclarations({ status: statusFilter || undefined })
   const user = getUser()
   const canUpload  = hasPermission(user?.role, 'upload')
