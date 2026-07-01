@@ -15,6 +15,20 @@ class ValidationResult(BaseModel):
     flagged_fields: list[str] = []
     score: int = 0
 
+class DeclarationItemResponse(BaseModel):
+    item_no: Optional[int] = None
+    hs_code: Optional[str] = None
+    description: Optional[str] = None
+    quantity: Optional[float] = None
+    unit: Optional[str] = None
+    unit_price: Optional[float] = None
+    total_value: Optional[float] = None
+    country_of_origin: Optional[str] = None
+    confidence: Optional[float] = None
+
+    class Config:
+        from_attributes = True
+
 class DeclarationResponse(BaseModel):
     id: UUID
     filename: str
@@ -55,7 +69,10 @@ class DeclarationResponse(BaseModel):
     ai_insight: Optional[dict]
     validation_result: Optional[dict]
     ceisa_response: Optional[dict]
-    line_items: Optional[list] = None
+    
+    line_items: Optional[list] = None     # compatibility lama
+    items: list[DeclarationItemResponse] = []    
+    
     processing_time_ms: Optional[float]
     operator_id: Optional[UUID]
     operator_name: Optional[str] = None
