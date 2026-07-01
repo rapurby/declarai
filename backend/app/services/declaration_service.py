@@ -96,13 +96,16 @@ async def run_pipeline_bg(
 
             decl.llm_extracted = raw
             decl.line_items = line_items
-            # Save every detected item into declaration_items table
+            decl.ai_insight = insight
+
+            # Save every detected item into declaration_item table.
+            # (Single insert block — do NOT duplicate this.)
             await db.execute(
                 DeclarationItem.__table__.delete().where(
                     DeclarationItem.declaration_id == decl.id
                 )
             )
-            
+
             for item in line_items:
                 db.add(
                     DeclarationItem(
@@ -118,7 +121,6 @@ async def run_pipeline_bg(
                         confidence=item.get("confidence"),
                     )
                 )
-            decl.ai_insight = insight
 
             doc_type_val = _gv(header, "document_type") or "unknown"
             try:
@@ -151,48 +153,19 @@ async def run_pipeline_bg(
             decl.bc11_number       = _gv(header, "bc11_number")
 
             # -------------------------------------------------
-# Legacy fields (tetap isi dari item pertama)
-# -------------------------------------------------
+            # Legacy fields (tetap isi dari item pertama agar
+            # frontend lama tetap kompatibel)
+            # -------------------------------------------------
+            if line_items:
+                first = line_items[0]
 
-if line_items:
-    first = line_items[0]
+                decl.hs_code = first.get("hs_code")
+                decl.quantity = first.get("quantity")
+                decl.unit = first.get("unit")
+                decl.description = first.get("description")
 
-    decl.hs_code = first.get("hs_code")
-    decl.quantity = first.get("quantity")
-    decl.unit = first.get("unit")
-    decl.description = first.get("description")
-
-# -------------------------------------------------
-# Simpan semua item ke tabel declaration_items
-# -------------------------------------------------
-
-await db.execute(
-    delete(DeclarationItem).where(
-        DeclarationItem.declaration_id == decl.id
-    )
-)
-
-for idx, item in enumerate(line_items, start=1):
-
-    db.add(
-        DeclarationItem(
-            declaration_id=decl.id,
-            item_no=idx,
-
-            hs_code=item.get("hs_code"),
-            description=item.get("description"),
-
-            quantity=item.get("quantity"),
-            unit=item.get("unit"),
-
-            unit_price=item.get("unit_price"),
-            total_value=item.get("total_value"),
-
-            country_of_origin=item.get("country_of_origin"),
-
-            confidence=item.get("confidence"),
-        )
-    )
+            # Semua item sudah disimpan ke tabel declaration_item
+            # pada blok di atas, jadi tidak perlu insert lagi.
 
             # Stage 4 — Validate
             await _broadcast(declaration_id, {"type": "stage", "stage": "validate", "label": "Validating extracted data..."})
