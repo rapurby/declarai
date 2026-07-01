@@ -96,6 +96,28 @@ async def run_pipeline_bg(
 
             decl.llm_extracted = raw
             decl.line_items = line_items
+            # Save every detected item into declaration_items table
+            await db.execute(
+                DeclarationItem.__table__.delete().where(
+                    DeclarationItem.declaration_id == decl.id
+                )
+            )
+            
+            for item in line_items:
+                db.add(
+                    DeclarationItem(
+                        declaration_id=decl.id,
+                        item_no=item.get("no"),
+                        hs_code=item.get("hs_code"),
+                        description=item.get("description"),
+                        quantity=item.get("quantity"),
+                        unit=item.get("unit"),
+                        unit_price=item.get("unit_price"),
+                        total_value=item.get("total_value"),
+                        country_of_origin=item.get("country_of_origin"),
+                        confidence=item.get("confidence"),
+                    )
+                )
             decl.ai_insight = insight
 
             doc_type_val = _gv(header, "document_type") or "unknown"
