@@ -1,8 +1,9 @@
 import time, logging, uuid, os, asyncio
 from concurrent.futures import ThreadPoolExecutor
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from app.models.declaration import Declaration, DeclarationStatus, DocumentType
+from app.models.declaration_item import DeclarationItem
 from app.models.audit import AuditLog
 from app.ocr.engine import run_ocr, ocr_to_plain_text
 from app.llm.extractor import extract_fields
@@ -127,13 +128,49 @@ async def run_pipeline_bg(
             decl.container_marks   = _gv(header, "container_marks")
             decl.bc11_number       = _gv(header, "bc11_number")
 
-            # Use first line item for legacy single-item fields
-            if line_items:
-                first = line_items[0]
-                decl.hs_code     = first.get("hs_code")
-                decl.quantity    = first.get("quantity")
-                decl.unit        = first.get("unit")
-                decl.description = first.get("description")
+            # -------------------------------------------------
+# Legacy fields (tetap isi dari item pertama)
+# -------------------------------------------------
+
+if line_items:
+    first = line_items[0]
+
+    decl.hs_code = first.get("hs_code")
+    decl.quantity = first.get("quantity")
+    decl.unit = first.get("unit")
+    decl.description = first.get("description")
+
+# -------------------------------------------------
+# Simpan semua item ke tabel declaration_items
+# -------------------------------------------------
+
+await db.execute(
+    delete(DeclarationItem).where(
+        DeclarationItem.declaration_id == decl.id
+    )
+)
+
+for idx, item in enumerate(line_items, start=1):
+
+    db.add(
+        DeclarationItem(
+            declaration_id=decl.id,
+            item_no=idx,
+
+            hs_code=item.get("hs_code"),
+            description=item.get("description"),
+
+            quantity=item.get("quantity"),
+            unit=item.get("unit"),
+
+            unit_price=item.get("unit_price"),
+            total_value=item.get("total_value"),
+
+            country_of_origin=item.get("country_of_origin"),
+
+            confidence=item.get("confidence"),
+        )
+    )
 
             # Stage 4 — Validate
             await _broadcast(declaration_id, {"type": "stage", "stage": "validate", "label": "Validating extracted data..."})
