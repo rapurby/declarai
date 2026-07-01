@@ -16,7 +16,7 @@ from app.core.database import Base
 
 
 class DeclarationItem(Base):
-    __tablename__ = "declaration_items"
+    __tablename__ = "declaration_item"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
