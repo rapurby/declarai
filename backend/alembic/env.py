@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from app.core.config import settings
 from app.core.database import Base
 # Import all models so metadata is populated
-from app.models import user, declaration, audit, qr_session  # noqa
+from app.models import user, declaration, declaration_item, audit, qr_session  # noqa
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.ASYNC_DATABASE_URL)
