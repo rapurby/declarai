@@ -76,11 +76,34 @@ async def update_declaration(
             changes[field] = (old_value, new_value)
         setattr(decl, field, new_value)
 
-    # Re-validate after manual update
-    if decl.llm_extracted:
-        from app.validator.ceisa_rules import validate
-        decl.validation_result = validate(decl.llm_extracted)
-        decl.status = DeclarationStatus.VALIDATED if decl.validation_result["valid"] else DeclarationStatus.FLAGGED
+    # Re-validate after manual update.
+    # PENTING: validasi pakai nilai kolom TERBARU (hasil koreksi operator),
+    # bukan decl.llm_extracted mentah — kalau tidak, koreksi operator
+    # tidak pernah dianggap dan dokumen selalu balik FLAGGED.
+    from app.validator.ceisa_rules import validate
+
+    llm_header = (decl.llm_extracted or {}).get("header", decl.llm_extracted or {})
+    HEADER_FIELDS = [
+        "consignee", "npwp_consignee", "declared_value", "currency",
+        "country_of_origin", "gross_weight", "net_weight",
+        "fob_value", "freight_value", "cif_value",
+        "shipper", "bl_number", "invoice_number", "invoice_date",
+        "port_of_loading", "port_of_discharge", "port_of_transit",
+        "vessel_name", "voyage_number",
+        "package_quantity", "package_type", "container_marks", "bc11_number",
+    ]
+    header = {}
+    for f in HEADER_FIELDS:
+        original = llm_header.get(f) or {}
+        header[f] = {
+            "value": getattr(decl, f, None),
+            # Field yang baru dikoreksi operator = confidence 1.0;
+            # sisanya pertahankan confidence hasil ekstraksi LLM.
+            "confidence": 1.0 if f in changes else original.get("confidence", 1.0),
+        }
+
+    decl.validation_result = validate(header, decl.line_items or [])
+    decl.status = DeclarationStatus.VALIDATED if decl.validation_result["valid"] else DeclarationStatus.FLAGGED
 
     await db.commit()
 

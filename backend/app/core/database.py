@@ -19,7 +19,7 @@ class Base(DeclarativeBase):
     pass
 
 async def init_db():
-    from app.models import declaration, user, audit, qr_session  # noqa
+    from app.models import declaration, declaration_item, user, audit, qr_session  # noqa
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 

@@ -169,7 +169,7 @@ async def run_pipeline_bg(
 
             # Stage 4 — Validate
             await _broadcast(declaration_id, {"type": "stage", "stage": "validate", "label": "Validating extracted data..."})
-            validation = validate(header)
+            validation = validate(header, line_items)
             decl.validation_result = validation
             decl.status = DeclarationStatus.VALIDATED if validation["valid"] else DeclarationStatus.FLAGGED
             decl.processing_time_ms = round((time.time() - start) * 1000, 2)
@@ -212,7 +212,9 @@ async def submit_declaration(declaration_id: str, db: AsyncSession) -> Declarati
     if decl.status not in [DeclarationStatus.VALIDATED]:
         raise ValueError(f"Cannot submit declaration with status '{decl.status}'")
 
-    payload = format_for_ceisa(decl.llm_extracted or {}, decl.id)
+    # formatter otomatis unwrap struktur nested {header, line_items, insight}
+    # dan membuat satu entri "goods" per line item
+    payload = format_for_ceisa(decl.llm_extracted or {}, decl.id, decl.line_items)
     decl.ceisa_payload = payload
     ceisa_resp = await submit_to_ceisa(payload)
     decl.ceisa_response = ceisa_resp

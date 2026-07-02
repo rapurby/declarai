@@ -107,6 +107,9 @@ export default function DeclarationDetail() {
 
   const val = decl.validation_result || {}
   const ext = decl.llm_extracted?.header || {}
+  // Items: pakai JSON line_items, fallback ke relasi tabel declaration_item
+  // (API mengirim keduanya — mana pun yang terisi tetap tampil)
+  const lineItems = (decl.line_items?.length ? decl.line_items : decl.items) || []
   const unreviewedRed = MANDATORY.filter(k => {
     const conf = ext[k]?.confidence
     return conf !== undefined && conf < 0.60 && !corrected[k]
@@ -183,14 +186,14 @@ export default function DeclarationDetail() {
           </div>
 
           <div className={styles.sectionLabel} style={{ marginTop: 28 }}>
-            Items {decl.line_items?.length > 0 && `(${decl.line_items.length})`}
+            Items {lineItems.length > 0 && `(${lineItems.length})`}
           </div>
           <div className={styles.lineItemsWrap}>
-            {decl.line_items?.length > 0 ? (
+            {lineItems.length > 0 ? (
               <>
                 <div className={styles.lineItemsSummary}>
-                  {decl.line_items.length} item(s), each with its own HS code &nbsp;·&nbsp;
-                  Total value: <strong>{decl.currency} {decl.line_items.reduce((s, i) => s + (i.total_value || 0), 0).toLocaleString()}</strong>
+                  {lineItems.length} item(s), each with its own HS code &nbsp;·&nbsp;
+                  Total value: <strong>{decl.currency} {lineItems.reduce((s, i) => s + (i.total_value || 0), 0).toLocaleString()}</strong>
                 </div>
                 <table className={styles.lineTable}>
                   <thead>
@@ -200,10 +203,10 @@ export default function DeclarationDetail() {
                     </tr>
                   </thead>
                   <tbody>
-                    {decl.line_items.map((item, i) => (
+                    {lineItems.map((item, i) => (
                       <Fragment key={i}>
                         <tr key={i} className={styles.lineRow} onClick={() => setExpandedItem(expandedItem === i ? null : i)} style={{ cursor: 'pointer' }}>
-                          <td className={styles.lineNo}>{item.no ?? i+1}</td>
+                          <td className={styles.lineNo}>{item.no ?? item.item_no ?? i+1}</td>
                           <td className={styles.lineHs}>{item.hs_code || '—'}</td>
                           <td className={styles.lineDesc}>{item.description || '—'}</td>
                           <td className={styles.lineMono}>{item.quantity ?? '—'}</td>
