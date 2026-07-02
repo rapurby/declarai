@@ -1,7 +1,8 @@
 [build]
 builder = "nixpacks"
 # Build React app jadi static files di dist/
-buildCommand = "npm install && npm run build"
+# (install dilakukan otomatis oleh nixpacks via npm ci)
+buildCommand = "npm run build"
 
 [deploy]
 # Serve hasil build (dist/) sebagai SPA — bukan source mentah.
