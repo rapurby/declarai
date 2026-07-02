@@ -26,14 +26,24 @@ api.interceptors.response.use(
 )
 
 export const declarationAPI = {
-  upload: (file, onProgress, sessionId) => {
+  upload: (file, onProgress, sessionId, docName) => {
     const fd = new FormData()
     fd.append('file', file)
     if (sessionId) fd.append('session_id', sessionId)
+    if (docName) fd.append('doc_name', docName)
     return api.post('/upload', fd, {
       headers: { 'Content-Type': 'multipart/form-data' },
       onUploadProgress: e => onProgress?.(Math.round(e.loaded * 100 / e.total)),
     })
+  },
+  getFile: async (id) => {
+    const token = localStorage.getItem('declarai_token')
+    const res = await fetch(`${BASE_URL}/api/v1/declarations/${id}/file`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) throw new Error('File not found')
+    const blob = await res.blob()
+    return URL.createObjectURL(blob)
   },
   uploadBatch: (files) => {
     const fd = new FormData()

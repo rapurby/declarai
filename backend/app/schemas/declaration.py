@@ -100,6 +100,7 @@ class DeclarationListItem(BaseModel):
         from_attributes = True
 
 class DeclarationUpdate(BaseModel):
+    line_items: Optional[list] = None
     hs_code: Optional[str] = None
     consignee: Optional[str] = None
     npwp_consignee: Optional[str] = None

@@ -18,6 +18,7 @@ async def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     session_id: Optional[str] = Form(None),
+    doc_name: Optional[str] = Form(None),
     current_user: User = Depends(require_role("admin", "operator")),
     db: AsyncSession = Depends(get_db),
 ):
@@ -30,11 +31,14 @@ async def upload_document(
     if len(file_bytes) == 0:
         raise HTTPException(status_code=400, detail="Empty file")
 
+    # Use custom doc_name if provided, otherwise fall back to original filename
+    display_name = doc_name.strip() if doc_name and doc_name.strip() else file.filename
+
     # Create declaration record immediately and return — process in background
     decl_id = uuid.uuid4()
     decl = Declaration(
         id=decl_id,
-        filename=file.filename,
+        filename=display_name,
         file_type=file.content_type,
         status=DeclarationStatus.PROCESSING,
         operator_id=current_user.id,
@@ -45,7 +49,7 @@ async def upload_document(
 
     background_tasks.add_task(
         run_pipeline_bg,
-        str(decl_id), file_bytes, file.filename, file.content_type, str(current_user.id)
+        str(decl_id), file_bytes, display_name, file.content_type, str(current_user.id)
     )
 
     return {

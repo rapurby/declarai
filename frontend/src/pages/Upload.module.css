@@ -23,6 +23,13 @@
 .fileName { font-size: 15px; font-weight: 600; color: var(--text-primary); }
 .fileSize { font-size: 12px; color: var(--text-muted); }
 
+.docNameWrap { margin-top: 16px; display: flex; flex-direction: column; gap: 4px; }
+.docNameLabel { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.docNameOptional { font-weight: 400; color: var(--text-muted); }
+.docNameInput { padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; color: var(--text-primary); background: var(--card); width: 100%; box-sizing: border-box; }
+.docNameInput:focus { outline: none; border-color: var(--accent); }
+.docNameHint { font-size: 11px; color: var(--text-muted); }
+
 .submitBtn {
   display: flex; align-items: center; gap: 8px; justify-content: center;
   width: 100%; margin-top: 14px; padding: 14px;

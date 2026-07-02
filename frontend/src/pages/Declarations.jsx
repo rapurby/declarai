@@ -7,23 +7,55 @@ import { getUser, hasPermission } from '../utils/auth.js'
 import toast from 'react-hot-toast'
 import styles from './Declarations.module.css'
 
-const STATUSES = ['', 'uploaded', 'processing', 'extracted', 'validated', 'flagged', 'submitted', 'accepted', 'rejected']
+// Simplified status groups — maps user-facing filter to underlying DB values
+const STATUS_GROUPS = {
+  '':         null,                                          // All
+  'processing': ['uploaded', 'processing', 'extracted'],    // In pipeline
+  'review':     ['flagged'],                                 // Needs manual review
+  'ready':      ['validated'],                               // Ready to submit
+  'submitted':  ['submitted', 'accepted', 'rejected'],       // Done
+}
+
+// Human-readable display label per raw DB status
+const STATUS_LABEL = {
+  uploaded:   'Processing',
+  processing: 'Processing',
+  extracted:  'Processing',
+  validated:  'Ready',
+  flagged:    'Needs Review',
+  submitted:  'Submitted',
+  accepted:   'Accepted',
+  rejected:   'Rejected',
+}
+
+const FILTER_OPTIONS = [
+  { value: '',           label: 'All Statuses' },
+  { value: 'processing', label: 'Processing' },
+  { value: 'review',     label: 'Needs Review' },
+  { value: 'ready',      label: 'Ready to Submit' },
+  { value: 'submitted',  label: 'Submitted / Done' },
+]
 
 export default function Declarations() {
   const [searchParams] = useSearchParams()
   const [search, setSearch]           = useState('')
-  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '')
-  const { data, loading, refetch }    = useDeclarations({ status: statusFilter || undefined })
+  const [statusFilter, setStatusFilter] = useState('')
+  // Fetch all declarations — filter client-side with grouped statuses
+  const { data, loading, refetch }    = useDeclarations({})
   const user = getUser()
   const canUpload  = hasPermission(user?.role, 'upload')
   const canDelete  = hasPermission(user?.role, 'upload')
 
-  const filtered = data.filter(d =>
-    !search ||
-    d.filename?.toLowerCase().includes(search.toLowerCase()) ||
-    (d.hs_code || '').includes(search) ||
-    (d.consignee || '').toLowerCase().includes(search.toLowerCase())
-  )
+  const allowedStatuses = STATUS_GROUPS[statusFilter]
+  const filtered = data.filter(d => {
+    if (allowedStatuses && !allowedStatuses.includes(d.status)) return false
+    if (search && !(
+      d.filename?.toLowerCase().includes(search.toLowerCase()) ||
+      (d.hs_code || '').includes(search) ||
+      (d.consignee || '').toLowerCase().includes(search.toLowerCase())
+    )) return false
+    return true
+  })
 
   const handleDelete = async (id, e) => {
     e.preventDefault()
@@ -53,7 +85,7 @@ export default function Declarations() {
         <div className={styles.filterWrap}>
           <Filter size={14} className={styles.filterIcon} />
           <select className={styles.filter} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-            {STATUSES.map(s => <option key={s} value={s}>{s ? s.charAt(0).toUpperCase() + s.slice(1) : 'All Statuses'}</option>)}
+            {FILTER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
       </div>
@@ -87,7 +119,7 @@ export default function Declarations() {
               <span className={styles.truncate}>{d.consignee || '—'}</span>
               <span className={styles.mono}>{d.currency} {d.declared_value?.toLocaleString() || '—'}</span>
               {user?.role !== 'operator' && <span className={styles.truncate}>{d.operator_name || '—'}</span>}
-              <span><span className={`badge badge-${d.status}`}>{d.status}</span></span>
+              <span><span className={`badge badge-${d.status}`}>{STATUS_LABEL[d.status] || d.status}</span></span>
               <span className={styles.time}>{d.processing_time_ms ? `${(d.processing_time_ms/1000).toFixed(1)}s` : '—'}</span>
               <span className={styles.actions}>
                 {canDelete && (

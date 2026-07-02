@@ -19,6 +19,7 @@ const STAGE_ORDER = ['upload', 'ocr', 'llm', 'validate', 'done']
 
 export default function Upload() {
   const [file, setFile]           = useState(null)
+  const [docName, setDocName]     = useState('')
   const [uploading, setUploading] = useState(false)
   const [currentStage, setCurrentStage] = useState(null)
   const [stageLabel, setStageLabel]     = useState('')
@@ -86,7 +87,7 @@ export default function Upload() {
     setStageLabel('Document received')
 
     try {
-      const res = await declarationAPI.upload(file)
+      const res = await declarationAPI.upload(file, undefined, undefined, docName.trim() || undefined)
       const { declaration_id } = res.data
       connectWs(declaration_id)
     } catch (e) {
@@ -139,7 +140,7 @@ export default function Upload() {
             <div className={styles.metaItem}><span className={styles.metaLabel}>Status</span><span className={'badge badge-' + result.status}>{result.status}</span></div>
           </div>
           <div className={styles.resultActions}>
-            <button className={styles.secondaryBtn} onClick={() => { setFile(null); setResult(null); setCurrentStage(null); setMode(null) }}>Upload Another</button>
+            <button className={styles.secondaryBtn} onClick={() => { setFile(null); setDocName(''); setResult(null); setCurrentStage(null); setMode(null) }}>Upload Another</button>
             <button className={styles.primaryBtn} onClick={() => navigate('/declarations/' + result.id)}>View & Submit →</button>
           </div>
         </div>
@@ -218,6 +219,21 @@ export default function Upload() {
               </div>
             )}
           </div>
+
+          {file && !uploading && (
+            <div className={styles.docNameWrap}>
+              <label className={styles.docNameLabel}>Document Name <span className={styles.docNameOptional}>(optional)</span></label>
+              <input
+                className={styles.docNameInput}
+                type="text"
+                placeholder={file.name}
+                value={docName}
+                onChange={e => setDocName(e.target.value)}
+                maxLength={120}
+              />
+              <div className={styles.docNameHint}>Leave blank to use the original filename</div>
+            </div>
+          )}
 
           {uploading && (
             <div className={styles.pipeline}>

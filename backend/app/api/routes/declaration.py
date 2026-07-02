@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from app.core.database import get_db
@@ -9,6 +10,7 @@ from app.models.user import User
 from app.schemas.declaration import DeclarationResponse, DeclarationListItem, DeclarationUpdate
 from app.services.declaration_service import submit_declaration, get_dashboard_stats, log_audit
 from typing import Optional
+import os
 
 router = APIRouter()
 
@@ -54,6 +56,27 @@ async def get_declaration(
         raise HTTPException(status_code=403, detail="Access denied")
     return decl
 
+@router.get("/declarations/{declaration_id}/file", summary="Download the original uploaded file")
+async def get_declaration_file(
+    declaration_id: str,
+    current_user: User = Depends(require_role("admin", "operator", "viewer")),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(Declaration).where(Declaration.id == declaration_id))
+    decl = result.scalar_one_or_none()
+    if not decl:
+        raise HTTPException(status_code=404, detail="Declaration not found")
+    if current_user.role == "operator" and str(decl.operator_id) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Access denied")
+    if not decl.file_path or not os.path.exists(decl.file_path):
+        raise HTTPException(status_code=404, detail="File not found on server")
+    return FileResponse(
+        decl.file_path,
+        media_type=decl.file_type or "application/octet-stream",
+        filename=decl.filename,
+    )
+
+
 @router.patch("/declarations/{declaration_id}", response_model=DeclarationResponse,
               summary="Manually update declaration fields (operator review)")
 async def update_declaration(
@@ -69,8 +92,14 @@ async def update_declaration(
     if current_user.role == "operator" and str(decl.operator_id) != str(current_user.id):
         raise HTTPException(status_code=403, detail="Access denied")
 
+    # Separate line_items (JSON blob) from auditable scalar fields
+    payload = data.model_dump(exclude_none=True)
+    new_line_items = payload.pop("line_items", None)
+    if new_line_items is not None:
+        decl.line_items = new_line_items
+
     changes = {}
-    for field, new_value in data.model_dump(exclude_none=True).items():
+    for field, new_value in payload.items():
         old_value = getattr(decl, field, None)
         if old_value != new_value:
             changes[field] = (old_value, new_value)

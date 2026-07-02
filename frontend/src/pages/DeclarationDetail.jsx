@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { CheckCircle, AlertTriangle, Send, Edit3, Save, X, ArrowLeft, Clock } from 'lucide-react'
+import { CheckCircle, AlertTriangle, Send, Edit3, Save, X, ArrowLeft, Clock, FileText } from 'lucide-react'
 import { declarationAPI, getWsUrl } from '../services/api.js'
 import { getUser, hasPermission } from '../utils/auth.js'
 import InsightPanel from '../components/InsightPanel.jsx'
@@ -43,6 +43,8 @@ export default function DeclarationDetail() {
   const [activeTab, setActiveTab] = useState(0)
   const [auditLog, setAuditLog] = useState([])
   const [expandedItem, setExpandedItem] = useState(null)
+  const [editingItem, setEditingItem] = useState(null)   // index of item being edited
+  const [itemEditData, setItemEditData] = useState({})   // draft fields for that item
   const wsRef = useRef(null)
 
   const user = getUser()
@@ -87,6 +89,41 @@ export default function DeclarationDetail() {
     Object.entries(editData).forEach(([k, v]) => { if (v !== '' && v !== null && v !== undefined) payload[k] = v })
     try { await declarationAPI.update(id, payload); await load(); setEditing(false); toast.success('Fields saved') }
     catch { toast.error('Update failed') }
+  }
+
+  const handleViewDoc = async () => {
+    try {
+      const url = await declarationAPI.getFile(decl.id)
+      window.open(url, '_blank')
+    } catch { toast.error('Original file not available') }
+  }
+
+  const startEditItem = (i, item) => {
+    setEditingItem(i)
+    setItemEditData({
+      hs_code: item.hs_code || '',
+      description: item.description || '',
+      quantity: item.quantity ?? '',
+      unit: item.unit || '',
+      unit_price: item.unit_price ?? '',
+      total_value: item.total_value ?? '',
+      country_of_origin: item.country_of_origin || '',
+    })
+  }
+
+  const handleSaveItem = async (i) => {
+    const items = [...lineItems]
+    const draft = { ...itemEditData }
+    if (draft.quantity !== '') draft.quantity = parseFloat(draft.quantity) || 0
+    if (draft.unit_price !== '') draft.unit_price = parseFloat(String(draft.unit_price).replace(/,/g, '')) || 0
+    if (draft.total_value !== '') draft.total_value = parseFloat(String(draft.total_value).replace(/,/g, '')) || 0
+    items[i] = { ...items[i], ...draft }
+    try {
+      await declarationAPI.update(id, { line_items: items })
+      await load()
+      setEditingItem(null)
+      toast.success('Item saved')
+    } catch { toast.error('Failed to save item') }
   }
 
   const handleSubmit = async () => {
@@ -150,6 +187,9 @@ export default function DeclarationDetail() {
           <div className={styles.heroMeta}>
             {decl.processing_time_ms && <span><Clock size={11} /> {(decl.processing_time_ms / 1000).toFixed(2)}s</span>}
             {decl.created_at && <span>{new Date(decl.created_at).toLocaleString()}</span>}
+            <button className={styles.viewDocBtn} onClick={handleViewDoc} title="View original uploaded file">
+              <FileText size={12} /> View Document
+            </button>
           </div>
         </div>
         <div className={styles.scoreBox}>
@@ -223,15 +263,52 @@ export default function DeclarationDetail() {
                         {expandedItem === i && (
                           <tr key={`detail-${i}`} className={styles.lineDetailRow}>
                             <td colSpan={9}>
-                              <div className={styles.lineDetailGrid}>
-                                <div><span className={styles.lineDetailLabel}>HS Code</span><span className={styles.lineDetailValue}>{item.hs_code || '—'}</span></div>
-                                <div><span className={styles.lineDetailLabel}>Description</span><span className={styles.lineDetailValue}>{item.description || '—'}</span></div>
-                                <div><span className={styles.lineDetailLabel}>Quantity</span><span className={styles.lineDetailValue}>{item.quantity ?? '—'} {item.unit || ''}</span></div>
-                                <div><span className={styles.lineDetailLabel}>Unit Price</span><span className={styles.lineDetailValue}>{decl.currency} {item.unit_price != null ? item.unit_price.toLocaleString() : '—'}</span></div>
-                                <div><span className={styles.lineDetailLabel}>Total Value</span><span className={styles.lineDetailValue}>{decl.currency} {item.total_value != null ? item.total_value.toLocaleString() : '—'}</span></div>
-                                <div><span className={styles.lineDetailLabel}>Country of Origin</span><span className={styles.lineDetailValue}>{item.country_of_origin || '—'}</span></div>
-                                <div><span className={styles.lineDetailLabel}>Extraction Confidence</span><span className={styles.lineDetailValue}>{item.confidence != null ? `${Math.round(item.confidence * 100)}%` : '—'}</span></div>
-                              </div>
+                              {editingItem === i ? (
+                                <div className={styles.lineEditWrap}>
+                                  <div className={styles.lineEditGrid}>
+                                    {[
+                                      ['hs_code','HS Code','text'],
+                                      ['description','Description','text'],
+                                      ['quantity','Quantity','number'],
+                                      ['unit','Unit','text'],
+                                      ['unit_price','Unit Price','number'],
+                                      ['total_value','Total Value','number'],
+                                      ['country_of_origin','Country of Origin','text'],
+                                    ].map(([key, label, type]) => (
+                                      <div key={key} className={styles.lineEditField}>
+                                        <span className={styles.lineDetailLabel}>{label}</span>
+                                        <input
+                                          className={styles.lineEditInput}
+                                          type={type}
+                                          value={itemEditData[key]}
+                                          onChange={e => setItemEditData(p => ({ ...p, [key]: e.target.value }))}
+                                        />
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <div className={styles.lineEditActions}>
+                                    <button className={styles.lineEditCancel} onClick={() => setEditingItem(null)}><X size={12}/> Cancel</button>
+                                    <button className={styles.lineEditSave} onClick={() => handleSaveItem(i)}><Save size={12}/> Save Item</button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className={styles.lineDetailGrid}>
+                                  <div><span className={styles.lineDetailLabel}>HS Code</span><span className={styles.lineDetailValue}>{item.hs_code || '—'}</span></div>
+                                  <div><span className={styles.lineDetailLabel}>Description</span><span className={styles.lineDetailValue}>{item.description || '—'}</span></div>
+                                  <div><span className={styles.lineDetailLabel}>Quantity</span><span className={styles.lineDetailValue}>{item.quantity ?? '—'} {item.unit || ''}</span></div>
+                                  <div><span className={styles.lineDetailLabel}>Unit Price</span><span className={styles.lineDetailValue}>{decl.currency} {item.unit_price != null ? item.unit_price.toLocaleString() : '—'}</span></div>
+                                  <div><span className={styles.lineDetailLabel}>Total Value</span><span className={styles.lineDetailValue}>{decl.currency} {item.total_value != null ? item.total_value.toLocaleString() : '—'}</span></div>
+                                  <div><span className={styles.lineDetailLabel}>Country of Origin</span><span className={styles.lineDetailValue}>{item.country_of_origin || '—'}</span></div>
+                                  <div><span className={styles.lineDetailLabel}>Extraction Confidence</span><span className={styles.lineDetailValue}>{item.confidence != null ? `${Math.round(item.confidence * 100)}%` : '—'}</span></div>
+                                  {canEdit && decl.status !== 'accepted' && (
+                                    <div>
+                                      <button className={styles.lineEditBtn} onClick={e => { e.stopPropagation(); startEditItem(i, item) }}>
+                                        <Edit3 size={12}/> Edit Item
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </td>
                           </tr>
                         )}
