@@ -1,12 +1,10 @@
 [build]
-builder = "nixpacks"
-# Build React app jadi static files di dist/
-# (install dilakukan otomatis oleh nixpacks via npm ci)
-buildCommand = "npm run build"
+# Pakai Dockerfile (bukan nixpacks) — nixpacks mendeteksi index.html dan
+# ikut menjalankan Caddy yang serve source mentah (.jsx sebagai text/plain),
+# penyebab layar putih. Dockerfile membuat prosesnya deterministik:
+# npm ci -> vite build -> serve dist/.
+builder = "DOCKERFILE"
 
 [deploy]
-# Serve hasil build (dist/) sebagai SPA — bukan source mentah.
-# Tanpa ini Railway serve file .jsx mentah -> layar putih (MIME text/plain).
-startCommand = "npm run start"
 healthcheckPath = "/"
-healthcheckTimeout = 60
+healthcheckTimeout = 120
