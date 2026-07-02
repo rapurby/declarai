@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from app.core.database import get_db
-from app.core.security import require_role
+from app.core.security import require_role, decode_token
 from app.models.declaration import Declaration, DeclarationStatus
 from app.models.audit import AuditLog
 from app.models.user import User
@@ -11,6 +12,8 @@ from app.schemas.declaration import DeclarationResponse, DeclarationListItem, De
 from app.services.declaration_service import submit_declaration, get_dashboard_stats, log_audit
 from typing import Optional
 import os
+
+_bearer = HTTPBearer(auto_error=False)
 
 router = APIRouter()
 
@@ -56,24 +59,40 @@ async def get_declaration(
         raise HTTPException(status_code=403, detail="Access denied")
     return decl
 
-@router.get("/declarations/{declaration_id}/file", summary="Download the original uploaded file")
+@router.get("/declarations/{declaration_id}/file", summary="View the original uploaded file inline")
 async def get_declaration_file(
     declaration_id: str,
-    current_user: User = Depends(require_role("admin", "operator", "viewer")),
+    t: Optional[str] = Query(None),  # token via query param for direct browser tab access
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer),
     db: AsyncSession = Depends(get_db),
 ):
+    # Accept auth from Authorization header OR ?t= query param
+    token = (credentials.credentials if credentials else None) or t
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    payload = decode_token(token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    user_id = payload.get("sub")
+    user_res = await db.execute(select(User).where(User.id == user_id))
+    user = user_res.scalar_one_or_none()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=403, detail="Access denied")
+
     result = await db.execute(select(Declaration).where(Declaration.id == declaration_id))
     decl = result.scalar_one_or_none()
     if not decl:
         raise HTTPException(status_code=404, detail="Declaration not found")
-    if current_user.role == "operator" and str(decl.operator_id) != str(current_user.id):
+    if user.role == "operator" and str(decl.operator_id) != str(user.id):
         raise HTTPException(status_code=403, detail="Access denied")
     if not decl.file_path or not os.path.exists(decl.file_path):
         raise HTTPException(status_code=404, detail="File not found on server")
+
+    safe_name = decl.filename.replace('"', '')
     return FileResponse(
         decl.file_path,
         media_type=decl.file_type or "application/octet-stream",
-        filename=decl.filename,
+        headers={"Content-Disposition": f'inline; filename="{safe_name}"'},
     )
 
 

@@ -91,32 +91,9 @@ export default function DeclarationDetail() {
     catch { toast.error('Update failed') }
   }
 
-  const handleViewDoc = async () => {
-    try {
-      const fileUrl = await declarationAPI.getFile(decl.id)
-      const isImage = decl.file_type?.startsWith('image/')
-      const html = `<!DOCTYPE html>
-<html>
-<head>
-  <title>${decl.filename}</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #525659; font-family: sans-serif; }
-    .bar { background: #3c3f41; color: #eee; padding: 8px 14px; font-size: 13px; display: flex; align-items: center; gap: 6px; }
-    embed { display: block; width: 100vw; height: calc(100vh - 36px); border: none; }
-    img { display: block; max-width: 860px; margin: 24px auto; box-shadow: 0 4px 24px rgba(0,0,0,0.5); }
-  </style>
-</head>
-<body>
-  <div class="bar">📄 ${decl.filename}</div>
-  ${isImage
-    ? `<img src="${fileUrl}" alt="${decl.filename}" />`
-    : `<embed src="${fileUrl}" type="application/pdf" />`}
-</body>
-</html>`
-      const blob = new Blob([html], { type: 'text/html' })
-      window.open(URL.createObjectURL(blob), '_blank')
-    } catch { toast.error('Original file not available') }
+  const handleViewDoc = () => {
+    const url = declarationAPI.getFileUrl(decl.id)
+    window.open(url, '_blank')
   }
 
   const startEditItem = (i, item) => {

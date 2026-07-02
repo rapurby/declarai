@@ -36,14 +36,9 @@ export const declarationAPI = {
       onUploadProgress: e => onProgress?.(Math.round(e.loaded * 100 / e.total)),
     })
   },
-  getFile: async (id) => {
+  getFileUrl: (id) => {
     const token = localStorage.getItem('declarai_token')
-    const res = await fetch(`${BASE_URL}/api/v1/declarations/${id}/file`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    if (!res.ok) throw new Error('File not found')
-    const blob = await res.blob()
-    return URL.createObjectURL(blob)
+    return `${BASE_URL}/api/v1/declarations/${id}/file?t=${encodeURIComponent(token)}`
   },
   uploadBatch: (files) => {
     const fd = new FormData()
