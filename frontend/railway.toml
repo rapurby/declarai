@@ -1,6 +1,11 @@
 [build]
 builder = "nixpacks"
+# Build React app jadi static files di dist/
+buildCommand = "npm install && npm run build"
 
 [deploy]
+# Serve hasil build (dist/) sebagai SPA — bukan source mentah.
+# Tanpa ini Railway serve file .jsx mentah -> layar putih (MIME text/plain).
+startCommand = "npm run start"
 healthcheckPath = "/"
-healthcheckTimeout = 30
+healthcheckTimeout = 60
