@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from fastapi.responses import FileResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,8 +10,11 @@ from app.models.audit import AuditLog
 from app.models.user import User
 from app.schemas.declaration import DeclarationResponse, DeclarationListItem, DeclarationUpdate
 from app.services.declaration_service import submit_declaration, get_dashboard_stats, log_audit
+from app.core.config import settings
 from typing import Optional
-import os
+import os, logging
+
+logger = logging.getLogger(__name__)
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -209,3 +212,67 @@ async def delete_declaration(
         raise HTTPException(status_code=404, detail="Declaration not found")
     await db.delete(decl)
     await db.commit()
+
+
+@router.post("/declarations/{declaration_id}/ceisa-callback", status_code=200,
+             summary="CEISA Simulator callback — update status setelah review")
+async def ceisa_callback(
+    declaration_id: str,
+    body: dict,
+    authorization: str = Header(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Dipanggil oleh CEISA Simulator setelah petugas accept/reject deklarasi.
+    Auth: Authorization: Bearer <CEISA_API_KEY> (shared secret yang sama dengan CDP_API_KEY di CEISA).
+    """
+    token = authorization.removeprefix("Bearer ").strip()
+    if token != settings.CEISA_API_KEY:
+        logger.warning("ceisa-callback: invalid API key")
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+    action = body.get("action")
+    if action not in ("accept", "reject"):
+        raise HTTPException(status_code=400, detail="action must be 'accept' or 'reject'")
+
+    result = await db.execute(select(Declaration).where(Declaration.id == declaration_id))
+    decl = result.scalar_one_or_none()
+    if not decl:
+        raise HTTPException(status_code=404, detail="Declaration not found")
+
+    decl.status = DeclarationStatus.ACCEPTED if action == "accept" else DeclarationStatus.REJECTED
+    if body.get("notes"):
+        decl.notes = body["notes"]
+    await db.commit()
+    logger.info(f"✅ CEISA callback: declaration {declaration_id} → {decl.status.value}")
+    return {"ok": True, "declaration_id": declaration_id, "status": decl.status.value}
+
+
+@router.get("/declarations/{declaration_id}/file-by-key",
+            summary="Fetch original file — auth via API key (untuk CEISA Simulator)")
+async def get_file_by_key(
+    declaration_id: str,
+    authorization: str = Header(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Endpoint untuk CEISA Simulator mengambil file asli (PDF/gambar).
+    Auth: Authorization: Bearer <CEISA_API_KEY> — tidak butuh JWT user.
+    """
+    token = authorization.removeprefix("Bearer ").strip()
+    if token != settings.CEISA_API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+    result = await db.execute(select(Declaration).where(Declaration.id == declaration_id))
+    decl = result.scalar_one_or_none()
+    if not decl:
+        raise HTTPException(status_code=404, detail="Declaration not found")
+    if not decl.file_path or not os.path.exists(decl.file_path):
+        raise HTTPException(status_code=404, detail="File not found on server")
+
+    safe_name = decl.filename.replace('"', '')
+    return FileResponse(
+        decl.file_path,
+        media_type=decl.file_type or "application/octet-stream",
+        headers={"Content-Disposition": f'inline; filename="{safe_name}"'},
+    )

@@ -219,8 +219,10 @@ async def submit_declaration(declaration_id: str, db: AsyncSession) -> Declarati
     ceisa_resp = await submit_to_ceisa(payload)
     decl.ceisa_response = ceisa_resp
 
-    if ceisa_resp.get("status") == "ACCEPTED":
-        decl.status = DeclarationStatus.ACCEPTED
+    # H2H "ACCEPTED" = acknowledgment "kami terima", bukan "lolos bea cukai".
+    # Status CDP pindah ke SUBMITTED sampai CEISA kirim callback accept/reject.
+    if ceisa_resp.get("status") in ("ACCEPTED", "RECEIVED"):
+        decl.status = DeclarationStatus.SUBMITTED
     else:
         decl.status = DeclarationStatus.REJECTED
 
