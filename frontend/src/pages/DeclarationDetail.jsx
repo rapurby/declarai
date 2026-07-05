@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { CheckCircle, AlertTriangle, Send, Edit3, Save, X, ArrowLeft, Clock, FileText } from 'lucide-react'
+import { CheckCircle, AlertTriangle, Send, Edit3, Save, X, ArrowLeft, Clock, FileText, Package, ShieldCheck, XCircle, ChevronLeft, ChevronRight } from 'lucide-react'
 import { declarationAPI, getWsUrl } from '../services/api.js'
 import { getUser, hasPermission } from '../utils/auth.js'
 import InsightPanel from '../components/InsightPanel.jsx'
@@ -30,6 +30,7 @@ const ALL_FIELDS = {
 
 const MANDATORY = ['consignee','declared_value','currency']
 const TABS = ['Overview', 'Insight', 'Audit Trail', 'CEISA Response']
+const ITEMS_PER_PAGE = 5
 
 export default function DeclarationDetail() {
   const { id } = useParams()
@@ -45,6 +46,9 @@ export default function DeclarationDetail() {
   const [expandedItem, setExpandedItem] = useState(null)
   const [editingItem, setEditingItem] = useState(null)   // index of item being edited
   const [itemEditData, setItemEditData] = useState({})   // draft fields for that item
+  // Presentational-only — paginates the already-loaded line items, no new fetches.
+  const [itemsPage, setItemsPage] = useState(1)
+  const [showAllItems, setShowAllItems] = useState(false)
   const wsRef = useRef(null)
 
   const user = getUser()
@@ -150,226 +154,335 @@ export default function DeclarationDetail() {
     return conf !== undefined && conf < 0.60 && !corrected[k]
   })
   const canSubmitNow = decl.status === 'validated' && canSubmit && unreviewedRed.length === 0
+  // The submit action no longer applies once a document has left the
+  // pre-submission pipeline — otherwise keep the button visible (disabled +
+  // labelled with why) rather than disappearing, so it's always discoverable.
+  const TERMINAL_STATUSES = ['submitted', 'accepted', 'rejected']
+  const showSubmitButton = canSubmit && !TERMINAL_STATUSES.includes(decl.status)
+  const submitBlockedReason = !canSubmitNow
+    ? (decl.status !== 'validated' ? 'Document must pass validation before it can be submitted' : `Review ${unreviewedRed.length} red field(s) first`)
+    : null
   const scoreColor = val.score >= 80 ? 'var(--success)' : val.score >= 60 ? 'var(--warning)' : 'var(--danger)'
+  const scoreStatus = val.score >= 80 ? 'Good' : val.score >= 60 ? 'Needs Attention' : 'Poor'
+  const fileExt = (decl.filename?.split('.').pop() || 'FILE').toUpperCase().slice(0, 4)
+
+  // --- Stats row: derived purely from already-loaded decl/lineItems/val, no new fetches ---
+  const totalValue = lineItems.reduce((s, i) => s + (i.total_value || 0), 0) || decl.declared_value || 0
+  const verifiedCount  = lineItems.filter(i => i.confidence >= 0.85).length
+  const reviewCount    = lineItems.filter(i => i.confidence >= 0.60 && i.confidence < 0.85).length
+  const mismatchCount  = lineItems.filter(i => i.confidence == null || i.confidence < 0.60).length
+  const pct = (n) => lineItems.length ? Math.round((n / lineItems.length) * 100) : 0
+
+  const STATS = [
+    { label: 'Total Nilai Dokumen', value: `${decl.currency || ''} ${totalValue.toLocaleString()}`, sub: 'Nilai keseluruhan dokumen', icon: FileText, tone: 'blue' },
+    { label: 'Total Item',          value: lineItems.length,                                          sub: 'item diekstrak',            icon: Package, tone: 'green' },
+    { label: 'Rata-rata Validasi',  value: `${val.score ?? 0}%`,                                       sub: 'Skor validasi keseluruhan',  icon: ShieldCheck, tone: 'purple' },
+    { label: 'Terverifikasi',       value: verifiedCount,                                              sub: `${pct(verifiedCount)}% dari total`, icon: CheckCircle, tone: 'green' },
+    { label: 'Perlu Review',        value: reviewCount,                                                sub: `${pct(reviewCount)}% dari total`,   icon: Clock, tone: 'orange' },
+    { label: 'Tidak Sesuai',        value: mismatchCount,                                              sub: `${pct(mismatchCount)}% dari total`, icon: XCircle, tone: 'red' },
+  ]
+
+  // --- Line items pagination (presentational only — preserves original index
+  // for expandedItem/editingItem/handleSaveItem, which all key off it) ---
+  const indexedItems = lineItems.map((item, i) => ({ item, i }))
+  const itemsPageCount = Math.max(1, Math.ceil(lineItems.length / ITEMS_PER_PAGE))
+  const safeItemsPage = Math.min(itemsPage, itemsPageCount)
+  const visibleItems = showAllItems ? indexedItems : indexedItems.slice((safeItemsPage - 1) * ITEMS_PER_PAGE, safeItemsPage * ITEMS_PER_PAGE)
 
   return (
     <div className={styles.page}>
-      <div className={styles.topBar}>
-        <button className={styles.backBtn} onClick={() => navigate('/declarations')}><ArrowLeft size={14} /> Back</button>
-        <div className={styles.topActions}>
-          {canEdit && !editing && decl.status !== 'accepted' && (
-            <button className={styles.editBtn} onClick={() => setEditing(true)}><Edit3 size={13} /> Edit Fields</button>
-          )}
-          {editing && (<>
-            <button className={styles.cancelBtn} onClick={() => setEditing(false)}><X size={13} /> Cancel</button>
-            <button className={styles.saveBtn} onClick={handleSave}><Save size={13} /> Save</button>
-          </>)}
-          {canSubmitNow && !editing && (
-            <button className={styles.submitBtn} onClick={handleSubmit} disabled={submitting}>
-              <Send size={13} /> {submitting ? 'Submitting...' : 'Submit to CEISA'}
-            </button>
-          )}
-          {decl.status === 'validated' && unreviewedRed.length > 0 && !editing && (
-            <div className={styles.blockNotice}>Review {unreviewedRed.length} red field(s) first</div>
-          )}
+      <div className={styles.container}>
+        <div className={styles.topBar}>
+          <button className={styles.backBtn} onClick={() => navigate('/declarations')}><ArrowLeft size={14} /> Back to List</button>
         </div>
-      </div>
 
-      <div className={styles.hero}>
-        <div className={styles.heroLeft}>
-          <span className={'badge badge-' + decl.status}>{decl.status}</span>
-          {decl.document_type && decl.document_type !== 'unknown' && (
-            <span className={styles.docTypePill}>{decl.document_type.replace(/_/g, ' ')}</span>
-          )}
-          <div className={styles.filename}>{decl.filename}</div>
-          <div className={styles.heroMeta}>
-            {decl.processing_time_ms && <span><Clock size={11} /> {(decl.processing_time_ms / 1000).toFixed(2)}s</span>}
-            {decl.created_at && <span>{new Date(decl.created_at).toLocaleString()}</span>}
-            <button className={styles.viewDocBtn} onClick={handleViewDoc} title="View original uploaded file">
-              <FileText size={12} /> View Document
-            </button>
-          </div>
-        </div>
-        <div className={styles.scoreBox}>
-          <div className={styles.scoreNum} style={{ color: scoreColor }}>{val.score ?? '—'}</div>
-          <div className={styles.scoreLabel}>Validation Score</div>
-        </div>
-      </div>
-
-      {(val.errors?.length > 0 || val.warnings?.length > 0) && (
-        <div className={styles.alerts}>
-          {val.errors?.map((e, i) => <div key={i} className={styles.alertError}><AlertTriangle size={12} />{e}</div>)}
-          {val.warnings?.map((w, i) => <div key={i} className={styles.alertWarn}><AlertTriangle size={12} />{w}</div>)}
-        </div>
-      )}
-
-      <div className={styles.tabs}>
-        {TABS.map((t, i) => (
-          <button key={t} onClick={() => setActiveTab(i)}
-            className={styles.tab + (activeTab === i ? ' ' + styles.tabActive : '')}>{t}</button>
-        ))}
-      </div>
-
-      {activeTab === 0 && (
-        <div className={styles.overviewWrap}>
-          <div className={styles.sectionLabel}>Document Information</div>
-          <div className={styles.fieldsGrid}>
-            {Object.entries(ALL_FIELDS).map(([key, label]) => (
-              <ConfidenceField key={key} label={label} fieldKey={key}
-                value={decl[key]} confidence={ext[key]?.confidence}
-                editing={editing} editValue={editData[key]}
-                onChange={handleFieldChange} corrected={!!corrected[key]}
-                required={MANDATORY.includes(key)} />
-            ))}
-          </div>
-
-          <div className={styles.sectionLabel} style={{ marginTop: 28 }}>
-            Items {lineItems.length > 0 && `(${lineItems.length})`}
-          </div>
-          <div className={styles.lineItemsWrap}>
-            {lineItems.length > 0 ? (
-              <>
-                <div className={styles.lineItemsSummary}>
-                  {lineItems.length} item(s), each with its own HS code &nbsp;·&nbsp;
-                  Total value: <strong>{decl.currency} {lineItems.reduce((s, i) => s + (i.total_value || 0), 0).toLocaleString()}</strong>
+        <div className={styles.hero}>
+          <div className={styles.heroLeft}>
+            <div className={styles.docHeadRow}>
+              <div className={styles.docIconBox}>
+                <FileText size={22} />
+                <span className={styles.docIconExt}>{fileExt}</span>
+              </div>
+              <div className={styles.docHeadInfo}>
+                <div className={styles.badgeRow}>
+                  <span className={'badge badge-' + decl.status}>{decl.status}</span>
+                  {decl.document_type && decl.document_type !== 'unknown' && (
+                    <span className={styles.docTypePill}>{decl.document_type.replace(/_/g, ' ')}</span>
+                  )}
                 </div>
-                <table className={styles.lineTable}>
-                  <thead>
-                    <tr>
-                      <th>#</th><th>HS Code</th><th>Description</th><th>Qty</th><th>Unit</th>
-                      <th>Unit Price</th><th>Total Value</th><th>Origin</th><th>Conf.</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lineItems.map((item, i) => (
-                      <Fragment key={i}>
-                        <tr key={i} className={styles.lineRow} onClick={() => setExpandedItem(expandedItem === i ? null : i)} style={{ cursor: 'pointer' }}>
-                          <td className={styles.lineNo}>{item.no ?? item.item_no ?? i+1}</td>
-                          <td className={styles.lineHs}>{item.hs_code || '—'}</td>
-                          <td className={styles.lineDesc}>{item.description || '—'}</td>
-                          <td className={styles.lineMono}>{item.quantity ?? '—'}</td>
-                          <td className={styles.lineMono}>{item.unit || '—'}</td>
-                          <td className={styles.lineMono}>{item.unit_price != null ? item.unit_price.toLocaleString() : '—'}</td>
-                          <td className={styles.lineMono}>{item.total_value != null ? item.total_value.toLocaleString() : '—'}</td>
-                          <td>{item.country_of_origin || '—'}</td>
-                          <td>
-                            <span className={styles.lineConf + ' ' + (item.confidence >= 0.85 ? styles.confHigh : item.confidence >= 0.6 ? styles.confMed : styles.confLow)}>
-                              {item.confidence != null ? `${Math.round(item.confidence * 100)}%` : '—'}
-                            </span>
-                          </td>
-                        </tr>
-                        {expandedItem === i && (
-                          <tr key={`detail-${i}`} className={styles.lineDetailRow}>
-                            <td colSpan={9}>
-                              {editingItem === i ? (
-                                <div className={styles.lineEditWrap}>
-                                  <div className={styles.lineEditGrid}>
-                                    {[
-                                      ['hs_code','HS Code','text'],
-                                      ['description','Description','text'],
-                                      ['quantity','Quantity','number'],
-                                      ['unit','Unit','text'],
-                                      ['unit_price','Unit Price','number'],
-                                      ['total_value','Total Value','number'],
-                                      ['country_of_origin','Country of Origin','text'],
-                                    ].map(([key, label, type]) => (
-                                      <div key={key} className={styles.lineEditField}>
-                                        <span className={styles.lineDetailLabel}>{label}</span>
-                                        <input
-                                          className={styles.lineEditInput}
-                                          type={type}
-                                          value={itemEditData[key]}
-                                          onChange={e => setItemEditData(p => ({ ...p, [key]: e.target.value }))}
-                                        />
-                                      </div>
-                                    ))}
-                                  </div>
-                                  <div className={styles.lineEditActions}>
-                                    <button className={styles.lineEditCancel} onClick={() => setEditingItem(null)}><X size={12}/> Cancel</button>
-                                    <button className={styles.lineEditSave} onClick={() => handleSaveItem(i)}><Save size={12}/> Save Item</button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className={styles.lineDetailGrid}>
-                                  <div><span className={styles.lineDetailLabel}>HS Code</span><span className={styles.lineDetailValue}>{item.hs_code || '—'}</span></div>
-                                  <div><span className={styles.lineDetailLabel}>Description</span><span className={styles.lineDetailValue}>{item.description || '—'}</span></div>
-                                  <div><span className={styles.lineDetailLabel}>Quantity</span><span className={styles.lineDetailValue}>{item.quantity ?? '—'} {item.unit || ''}</span></div>
-                                  <div><span className={styles.lineDetailLabel}>Unit Price</span><span className={styles.lineDetailValue}>{decl.currency} {item.unit_price != null ? item.unit_price.toLocaleString() : '—'}</span></div>
-                                  <div><span className={styles.lineDetailLabel}>Total Value</span><span className={styles.lineDetailValue}>{decl.currency} {item.total_value != null ? item.total_value.toLocaleString() : '—'}</span></div>
-                                  <div><span className={styles.lineDetailLabel}>Country of Origin</span><span className={styles.lineDetailValue}>{item.country_of_origin || '—'}</span></div>
-                                  <div><span className={styles.lineDetailLabel}>Extraction Confidence</span><span className={styles.lineDetailValue}>{item.confidence != null ? `${Math.round(item.confidence * 100)}%` : '—'}</span></div>
-                                  {canEdit && decl.status !== 'accepted' && (
-                                    <div>
-                                      <button className={styles.lineEditBtn} onClick={e => { e.stopPropagation(); startEditItem(i, item) }}>
-                                        <Edit3 size={12}/> Edit Item
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </td>
-                          </tr>
-                        )}
-                      </Fragment>
-                    ))}
-                  </tbody>
-                </table>
-              </>
-            ) : (
-              <div className={styles.empty}>No items extracted from this document.</div>
+                <div className={styles.filename}>{decl.filename}</div>
+                <div className={styles.heroMeta}>
+                  {decl.processing_time_ms && <span><Clock size={11} /> {(decl.processing_time_ms / 1000).toFixed(2)}s</span>}
+                  {decl.created_at && <span>{new Date(decl.created_at).toLocaleString()}</span>}
+                  <button className={styles.viewDocBtn} onClick={handleViewDoc} title="View original uploaded file">
+                    <FileText size={12} /> View Document
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.fieldsGrid}>
+              {Object.entries(ALL_FIELDS).map(([key, label]) => (
+                <ConfidenceField key={key} label={label} fieldKey={key}
+                  value={decl[key]} confidence={ext[key]?.confidence}
+                  editing={editing} editValue={editData[key]}
+                  onChange={handleFieldChange} corrected={!!corrected[key]}
+                  required={MANDATORY.includes(key)} />
+              ))}
+            </div>
+          </div>
+
+          <div className={styles.scorePanel}>
+            <div className={styles.scorePanelTitle}>Validation Score</div>
+            <div className={styles.gaugeWrap}>
+              <svg width="148" height="148" viewBox="0 0 148 148" className={styles.gaugeSvg}>
+                <circle cx="74" cy="74" r="60" fill="none" stroke="var(--border-light)" strokeWidth="13" />
+                <circle cx="74" cy="74" r="60" fill="none" stroke={scoreColor} strokeWidth="13"
+                  strokeDasharray={2 * Math.PI * 60}
+                  strokeDashoffset={2 * Math.PI * 60 * (1 - (val.score ?? 0) / 100)}
+                  strokeLinecap="round" transform="rotate(-90 74 74)" className={styles.gaugeFill} />
+              </svg>
+              <div className={styles.gaugeCenter}>
+                <div className={styles.gaugeScore} style={{ color: scoreColor }}>{val.score ?? '—'}</div>
+                <div className={styles.gaugeMax}>/100</div>
+              </div>
+            </div>
+            <div className={styles.scoreStatusPill} style={{ color: scoreColor }}>
+              <span className={styles.scoreDot} style={{ background: scoreColor }} /> {scoreStatus}
+            </div>
+            <p className={styles.scoreDesc}>Validation score is calculated based on how well the extracted data matches CEISA requirements.</p>
+
+            <div className={styles.scoreActions}>
+              {canEdit && !editing && decl.status !== 'accepted' && (
+                <button className={styles.editBtn} onClick={() => setEditing(true)}><Edit3 size={13} /> Edit Fields</button>
+              )}
+              {editing && (<>
+                <button className={styles.cancelBtn} onClick={() => setEditing(false)}><X size={13} /> Cancel</button>
+                <button className={styles.saveBtn} onClick={handleSave}><Save size={13} /> Save</button>
+              </>)}
+              {showSubmitButton && !editing && (
+                <button className={styles.submitBtn} onClick={handleSubmit} disabled={submitting || !canSubmitNow}>
+                  <Send size={13} /> {submitting ? 'Submitting...' : 'Submit to CEISA →'}
+                </button>
+              )}
+            </div>
+            {showSubmitButton && submitBlockedReason && !editing && (
+              <div className={styles.blockNotice}>{submitBlockedReason}</div>
             )}
           </div>
         </div>
-      )}
 
-      {activeTab === 1 && (
-        <div className={styles.insightWrap}>
-          {decl.ai_insight ? <InsightPanel insight={decl.ai_insight} /> : <div className={styles.empty}>No AI insight available.</div>}
-        </div>
-      )}
-
-      {activeTab === 2 && (
-        <div className={styles.auditWrap}>
-          {auditLog.length === 0 ? <div className={styles.empty}>No manual edits recorded.</div> : (
-            <table className={styles.auditTable}>
-              <thead><tr><th>Field</th><th>Before</th><th>After</th><th>Time</th></tr></thead>
-              <tbody>
-                {auditLog.map(log => (
-                  <tr key={log.id}>
-                    <td className={styles.auditField}>{log.field_name?.replace(/_/g, ' ')}</td>
-                    <td className={styles.auditOld}>{log.old_value ?? '—'}</td>
-                    <td className={styles.auditNew}>{log.new_value ?? '—'}</td>
-                    <td className={styles.auditTime}>{new Date(log.created_at).toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      )}
-
-      {activeTab === 3 && (
-        <div className={styles.ceisaWrap}>
-          {decl.ceisa_response ? (
-            <div className={styles.ceisaCard}>
-              <div className={styles.ceisaStatus + ' ' + (decl.ceisa_response.status === 'ACCEPTED' ? styles.accepted : styles.rejected)}>
-                {decl.ceisa_response.status === 'ACCEPTED' ? <CheckCircle size={18} /> : <AlertTriangle size={18} />}
-                {decl.ceisa_response.status}
+        <div className={styles.statsRow}>
+          {STATS.map(s => (
+            <div key={s.label} className={styles.statTile}>
+              <div className={styles.statIcon + ' ' + styles['tone_' + s.tone]}><s.icon size={16} /></div>
+              <div className={styles.statBody}>
+                <div className={styles.statLabel}>{s.label}</div>
+                <div className={styles.statValue}>{s.value}</div>
+                <div className={styles.statSub}>{s.sub}</div>
               </div>
-              {decl.ceisa_response.registration_number && (
-                <div className={styles.regBlock}>
-                  <div className={styles.regLabel}>Registration Number</div>
-                  <div className={styles.regNumber}>{decl.ceisa_response.registration_number}</div>
-                </div>
-              )}
-              {decl.ceisa_response.message && <p className={styles.ceisaMsg}>{decl.ceisa_response.message}</p>}
-              {decl.ceisa_response.simulator && <div className={styles.simNote}>Simulator Mode</div>}
             </div>
-          ) : (
-            <div className={styles.empty}>Declaration has not been submitted yet.</div>
-          )}
+          ))}
         </div>
-      )}
+
+        {(val.errors?.length > 0 || val.warnings?.length > 0) && (
+          <div className={styles.alerts}>
+            {val.errors?.map((e, i) => <div key={'e' + i} className={styles.alertChip + ' ' + styles.alertChipError}><AlertTriangle size={12} />{e}</div>)}
+            {val.warnings?.map((w, i) => <div key={'w' + i} className={styles.alertChip + ' ' + styles.alertChipWarn}><AlertTriangle size={12} />{w}</div>)}
+          </div>
+        )}
+
+        <div className={styles.tabs}>
+          <div className={styles.tabIndicator} style={{ left: `${(100 / TABS.length) * activeTab}%`, width: `${100 / TABS.length}%` }} />
+          {TABS.map((t, i) => (
+            <button key={t} onClick={() => setActiveTab(i)}
+              className={styles.tab + (activeTab === i ? ' ' + styles.tabActive : '')}>{t}</button>
+          ))}
+        </div>
+
+        {activeTab === 0 && (
+          <div className={styles.overviewGrid}>
+            <div className={styles.itemsPanel}>
+              <div className={styles.panelTitle}>Rincian Barang {lineItems.length > 0 && `(${lineItems.length} item)`}</div>
+              {lineItems.length > 0 ? (
+                <>
+                  <div className={styles.lineItemsWrap}>
+                    <table className={styles.lineTable}>
+                      <thead>
+                        <tr>
+                          <th>#</th><th>HS Code</th><th>Description</th><th>Qty</th><th>Unit</th>
+                          <th>Unit Price</th><th>Total Value</th><th>Origin</th><th>Conf.</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {visibleItems.map(({ item, i }) => (
+                          <Fragment key={i}>
+                            <tr className={styles.lineRow} onClick={() => setExpandedItem(expandedItem === i ? null : i)} style={{ cursor: 'pointer' }}>
+                              <td className={styles.lineNo}>{item.no ?? item.item_no ?? i + 1}</td>
+                              <td className={styles.lineHs}>{item.hs_code || '—'}</td>
+                              <td className={styles.lineDesc}>{item.description || '—'}</td>
+                              <td className={styles.lineMono}>{item.quantity ?? '—'}</td>
+                              <td className={styles.lineMono}>{item.unit || '—'}</td>
+                              <td className={styles.lineMono}>{item.unit_price != null ? item.unit_price.toLocaleString() : '—'}</td>
+                              <td className={styles.lineMono}>{item.total_value != null ? item.total_value.toLocaleString() : '—'}</td>
+                              <td>{item.country_of_origin || '—'}</td>
+                              <td>
+                                <span className={styles.lineConf + ' ' + (item.confidence >= 0.85 ? styles.confHigh : item.confidence >= 0.6 ? styles.confMed : styles.confLow)}>
+                                  {item.confidence != null ? `${Math.round(item.confidence * 100)}%` : '—'}
+                                </span>
+                              </td>
+                            </tr>
+                            {expandedItem === i && (
+                              <tr className={styles.lineDetailRow}>
+                                <td colSpan={9}>
+                                  {editingItem === i ? (
+                                    <div className={styles.lineEditWrap}>
+                                      <div className={styles.lineEditGrid}>
+                                        {[
+                                          ['hs_code','HS Code','text'],
+                                          ['description','Description','text'],
+                                          ['quantity','Quantity','number'],
+                                          ['unit','Unit','text'],
+                                          ['unit_price','Unit Price','number'],
+                                          ['total_value','Total Value','number'],
+                                          ['country_of_origin','Country of Origin','text'],
+                                        ].map(([key, label, type]) => (
+                                          <div key={key} className={styles.lineEditField}>
+                                            <span className={styles.lineDetailLabel}>{label}</span>
+                                            <input
+                                              className={styles.lineEditInput}
+                                              type={type}
+                                              value={itemEditData[key]}
+                                              onChange={e => setItemEditData(p => ({ ...p, [key]: e.target.value }))}
+                                            />
+                                          </div>
+                                        ))}
+                                      </div>
+                                      <div className={styles.lineEditActions}>
+                                        <button className={styles.lineEditCancel} onClick={() => setEditingItem(null)}><X size={12}/> Cancel</button>
+                                        <button className={styles.lineEditSave} onClick={() => handleSaveItem(i)}><Save size={12}/> Save Item</button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className={styles.lineDetailGrid}>
+                                      <div><span className={styles.lineDetailLabel}>HS Code</span><span className={styles.lineDetailValue}>{item.hs_code || '—'}</span></div>
+                                      <div><span className={styles.lineDetailLabel}>Description</span><span className={styles.lineDetailValue}>{item.description || '—'}</span></div>
+                                      <div><span className={styles.lineDetailLabel}>Quantity</span><span className={styles.lineDetailValue}>{item.quantity ?? '—'} {item.unit || ''}</span></div>
+                                      <div><span className={styles.lineDetailLabel}>Unit Price</span><span className={styles.lineDetailValue}>{decl.currency} {item.unit_price != null ? item.unit_price.toLocaleString() : '—'}</span></div>
+                                      <div><span className={styles.lineDetailLabel}>Total Value</span><span className={styles.lineDetailValue}>{decl.currency} {item.total_value != null ? item.total_value.toLocaleString() : '—'}</span></div>
+                                      <div><span className={styles.lineDetailLabel}>Country of Origin</span><span className={styles.lineDetailValue}>{item.country_of_origin || '—'}</span></div>
+                                      <div><span className={styles.lineDetailLabel}>Extraction Confidence</span><span className={styles.lineDetailValue}>{item.confidence != null ? `${Math.round(item.confidence * 100)}%` : '—'}</span></div>
+                                      {canEdit && decl.status !== 'accepted' && (
+                                        <div>
+                                          <button className={styles.lineEditBtn} onClick={e => { e.stopPropagation(); startEditItem(i, item) }}>
+                                            <Edit3 size={12}/> Edit Item
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            )}
+                          </Fragment>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className={styles.itemsFooter}>
+                    <button className={styles.showAllBtn} onClick={() => setShowAllItems(s => !s)}>
+                      {showAllItems ? 'Show Paginated' : `Lihat Semua (${lineItems.length})`}
+                    </button>
+                    {!showAllItems && itemsPageCount > 1 && (
+                      <div className={styles.pager}>
+                        <button className={styles.pageBtn} disabled={safeItemsPage === 1}
+                          onClick={() => setItemsPage(p => Math.max(1, p - 1))}><ChevronLeft size={14}/></button>
+                        <span className={styles.pageIndicator}>{safeItemsPage} / {itemsPageCount}</span>
+                        <button className={styles.pageBtn} disabled={safeItemsPage === itemsPageCount}
+                          onClick={() => setItemsPage(p => Math.min(itemsPageCount, p + 1))}><ChevronRight size={14}/></button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className={styles.empty}>No items extracted from this document.</div>
+              )}
+            </div>
+
+            <div className={styles.validationPanel}>
+              <div className={styles.panelTitle}>Validasi Dokumen</div>
+              {(val.warnings?.length > 0 || val.errors?.length > 0) ? (
+                <div className={styles.validationList}>
+                  {val.warnings?.map((w, i) => (
+                    <div key={'w' + i} className={styles.validationItem}>
+                      <AlertTriangle size={14} className={styles.vWarnIcon} />
+                      <span>{w}</span>
+                    </div>
+                  ))}
+                  {val.errors?.map((e, i) => (
+                    <div key={'e' + i} className={styles.validationItem + ' ' + styles.validationItemError}>
+                      <AlertTriangle size={14} className={styles.vErrIcon} />
+                      <span>{e}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className={styles.validationEmpty}><CheckCircle size={20} /> No validation issues found.</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 1 && (
+          <div className={styles.tabPanel}>
+            {decl.ai_insight ? <InsightPanel insight={decl.ai_insight} /> : <div className={styles.empty}>No AI insight available.</div>}
+          </div>
+        )}
+
+        {activeTab === 2 && (
+          <div className={styles.tabPanel + ' ' + styles.auditWrap}>
+            {auditLog.length === 0 ? <div className={styles.empty}>No manual edits recorded.</div> : (
+              <table className={styles.auditTable}>
+                <thead><tr><th>Field</th><th>Before</th><th>After</th><th>Time</th></tr></thead>
+                <tbody>
+                  {auditLog.map(log => (
+                    <tr key={log.id}>
+                      <td className={styles.auditField}>{log.field_name?.replace(/_/g, ' ')}</td>
+                      <td className={styles.auditOld}>{log.old_value ?? '—'}</td>
+                      <td className={styles.auditNew}>{log.new_value ?? '—'}</td>
+                      <td className={styles.auditTime}>{new Date(log.created_at).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+
+        {activeTab === 3 && (
+          <div className={styles.tabPanel}>
+            {decl.ceisa_response ? (
+              <div className={styles.ceisaCard}>
+                <div className={styles.ceisaStatus + ' ' + (decl.ceisa_response.status === 'ACCEPTED' ? styles.accepted : styles.rejected)}>
+                  {decl.ceisa_response.status === 'ACCEPTED' ? <CheckCircle size={18} /> : <AlertTriangle size={18} />}
+                  {decl.ceisa_response.status}
+                </div>
+                {decl.ceisa_response.registration_number && (
+                  <div className={styles.regBlock}>
+                    <div className={styles.regLabel}>Registration Number</div>
+                    <div className={styles.regNumber}>{decl.ceisa_response.registration_number}</div>
+                  </div>
+                )}
+                {decl.ceisa_response.message && <p className={styles.ceisaMsg}>{decl.ceisa_response.message}</p>}
+                {decl.ceisa_response.simulator && <div className={styles.simNote}>Simulator Mode</div>}
+              </div>
+            ) : (
+              <div className={styles.empty}>Declaration has not been submitted yet.</div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

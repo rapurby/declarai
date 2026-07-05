@@ -24,7 +24,7 @@
 .brandTagline { font-size: 11px; color: rgba(255,255,255,0.55); }
 
 .heroHeading {
-  font-size: 28px; font-weight: 800; color: white;
+  font-size: 27px; font-weight: 800; color: white;
   line-height: 1.28; letter-spacing: -0.3px; margin-bottom: 14px;
   max-width: 320px;
 }
@@ -57,10 +57,10 @@
 }
 
 .authCard {
-  width: 100%; max-width: 380px;
+  width: 100%; max-width: 400px;
   background: var(--card); border: 1px solid var(--border);
   border-radius: var(--radius-lg); box-shadow: var(--shadow);
-  padding: 36px 32px;
+  padding: 34px 32px;
   animation: authCardIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes authCardIn {
@@ -69,9 +69,9 @@
 }
 
 .authTitle { font-size: 19px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
-.authSubtitle { font-size: 13px; color: var(--text-muted); margin-bottom: 26px; }
+.authSubtitle { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; }
 
-.authForm { display: flex; flex-direction: column; gap: 16px; }
+.authForm { display: flex; flex-direction: column; gap: 15px; }
 .formGroup { display: flex; flex-direction: column; gap: 6px; }
 .formLabel { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
 
@@ -80,10 +80,18 @@
   background: var(--bg-elevated); border: 1.5px solid var(--border);
   border-radius: var(--radius-sm); color: var(--text-primary); font-size: 14px;
   transition: border-color 0.15s, box-shadow 0.15s;
+  appearance: none;
 }
 .formInput::placeholder { color: var(--text-muted); }
 .formInput:hover { border-color: #cbd2df; }
 .formInput:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+
+select.formInput {
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238496b0' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center;
+  padding-right: 32px;
+}
 
 .passwordField { position: relative; display: flex; align-items: center; }
 .passwordField .formInput { padding-right: 38px; }
@@ -94,19 +102,26 @@
 }
 .togglePw:hover { color: var(--text-secondary); background: var(--bg-hover); }
 
-.signInBtn {
+.submitBtn {
   margin-top: 4px; padding: 12px; background: var(--accent); color: white;
   border-radius: var(--radius-sm); font-size: 14px; font-weight: 700;
   display: flex; align-items: center; justify-content: center; gap: 8px;
   transition: background 0.15s, transform 0.1s;
 }
-.signInBtn:hover:not(:disabled) { background: var(--accent-light); }
-.signInBtn:active:not(:disabled) { transform: scale(0.98); }
-.signInBtn:disabled { opacity: 0.65; cursor: not-allowed; }
+.submitBtn:hover:not(:disabled) { background: var(--accent-light); }
+.submitBtn:active:not(:disabled) { transform: scale(0.98); }
+.submitBtn:disabled { opacity: 0.65; cursor: not-allowed; }
 .btnSpinner { animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.authFooter { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 20px; line-height: 1.6; }
+.approvalNote {
+  display: flex; align-items: flex-start; gap: 8px; margin-top: 18px;
+  padding: 11px 13px; background: var(--accent-dim); border-radius: var(--radius-sm);
+  font-size: 12px; color: var(--text-secondary); line-height: 1.5;
+}
+.approvalNote svg { flex-shrink: 0; margin-top: 1px; color: var(--accent); }
+
+.authFooter { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 18px; }
 .authLink { color: var(--accent); font-weight: 600; text-decoration: none; }
 .authLink:hover { text-decoration: underline; }
 

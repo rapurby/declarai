@@ -10,10 +10,13 @@ function getConfColor(confidence) {
 function ConfBadge({ confidence }) {
   if (confidence === undefined || confidence === null) return null
   const level = getConfColor(confidence)
+  // Only flag fields that actually need a second look — a badge on every
+  // high-confidence field is just noise.
+  if (level === 'high') return null
   const pct = Math.round(confidence * 100)
   return (
     <span className={`${styles.badge} ${styles['badge_' + level]}`}>
-      {level === 'high' ? '🟢' : level === 'medium' ? '🟡' : '🔴'} {pct}%
+      <span className={styles.badgeDot} /> {pct}%
     </span>
   )
 }

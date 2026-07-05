@@ -61,6 +61,8 @@ export const authAPI = {
   me: () => api.get('/auth/me'),
   changePassword: (current_password, new_password) =>
     api.post('/auth/change-password', { current_password, new_password }),
+  updateProfile: (full_name) =>
+    api.patch('/auth/me', { full_name }),
 }
 
 export const adminAPI = {

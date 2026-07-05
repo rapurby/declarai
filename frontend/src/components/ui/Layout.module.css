@@ -12,7 +12,7 @@
 .topnavInner {
   max-width: 1400px; margin: 0 auto;
   display: flex; align-items: center; gap: 0;
-  padding: 0 24px; height: 56px;
+  padding: 0 28px; height: 52px;
 }
 
 /* Brand */
@@ -30,10 +30,10 @@
 .brandSub { font-size: 11px; color: rgba(255,255,255,0.45); font-weight: 500; }
 
 /* Nav links */
-.navLinks { display: flex; align-items: center; gap: 2px; flex: 1; }
+.navLinks { display: flex; align-items: center; gap: 6px; flex: 1; }
 .navLink {
   display: flex; align-items: center; gap: 6px;
-  padding: 6px 12px; border-radius: 6px;
+  padding: 7px 16px; border-radius: 7px;
   font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.55);
   text-decoration: none; transition: all 0.15s ease; white-space: nowrap;
 }

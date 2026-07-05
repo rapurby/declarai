@@ -45,6 +45,21 @@ async def get_me(current_user: User = Depends(require_role("admin", "operator", 
                         full_name=current_user.full_name, role=current_user.role,
                         is_active=current_user.is_active)
 
+@router.patch("/me", status_code=200)
+async def update_profile(
+    body: dict,
+    current_user: User = Depends(require_role("admin", "operator", "viewer")),
+    db: AsyncSession = Depends(get_db),
+):
+    full_name = body.get("full_name", "").strip()
+    if not full_name:
+        raise HTTPException(status_code=400, detail="full_name is required")
+    current_user.full_name = full_name
+    await db.commit()
+    return UserResponse(id=str(current_user.id), email=current_user.email,
+                        full_name=current_user.full_name, role=current_user.role,
+                        is_active=current_user.is_active)
+
 @router.post("/change-password", status_code=200)
 async def change_password(
     body: dict,

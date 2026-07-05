@@ -1,0 +1,86 @@
+.page {
+  /* Profile-scoped tokens — consistent with the rest of the app */
+  --prof-primary:      #0f4c81;
+  --prof-primary-soft: rgba(15,76,129,0.08);
+  --prof-shadow:       0 1px 2px rgba(15,23,42,0.03), 0 1px 10px rgba(15,23,42,0.045);
+
+  background: #f8f9fc;
+  min-height: 100%;
+}
+
+.container { max-width: 560px; margin: 0 auto; padding: 48px 32px 56px; display: flex; flex-direction: column; gap: 18px; }
+
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes feedbackIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
+.header { margin-bottom: 2px; }
+.title    { font-size: 23px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.4px; }
+.subtitle { font-size: 13.5px; color: var(--text-muted); margin-top: 5px; }
+
+/* Account card */
+.accountCard {
+  background: var(--card); border-radius: 20px; padding: 26px 28px;
+  display: flex; align-items: center; gap: 18px; box-shadow: var(--prof-shadow);
+  animation: fadeInUp 0.4s cubic-bezier(0.16,1,0.3,1) both;
+}
+.avatar {
+  width: 64px; height: 64px; border-radius: 18px; flex-shrink: 0;
+  background: linear-gradient(155deg, var(--prof-primary), #15619f); color: white;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; font-weight: 800; letter-spacing: -0.5px;
+  box-shadow: 0 4px 14px rgba(15,76,129,0.3);
+}
+.accountInfo { min-width: 0; }
+.accountName { font-size: 18px; font-weight: 700; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.accountEmail { font-size: 13px; color: var(--text-muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.roleBadge { display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 999px; font-size: 11.5px; font-weight: 700; margin-top: 9px; text-transform: capitalize; }
+
+/* Password card */
+.passwordCard {
+  background: var(--card); border-radius: 20px; padding: 26px 28px; box-shadow: var(--prof-shadow);
+  animation: fadeInUp 0.4s cubic-bezier(0.16,1,0.3,1) both;
+}
+.cardLabel { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 20px; }
+
+.form { display: flex; flex-direction: column; gap: 16px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.fieldLabel { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
+.inputWrap { position: relative; }
+.input {
+  width: 100%; box-sizing: border-box; padding: 11px 40px 11px 14px;
+  border: 1.5px solid var(--border); border-radius: 12px;
+  font-size: 13.5px; background: var(--bg-elevated); color: var(--text-primary);
+  outline: none; transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+.input:focus { border-color: var(--prof-primary); box-shadow: 0 0 0 3px var(--prof-primary-soft); background: var(--card); }
+.toggleBtn {
+  position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 4px; border-radius: 6px;
+  display: flex; transition: color 0.15s ease, background 0.15s ease;
+}
+.toggleBtn:hover { color: var(--text-secondary); background: var(--bg-hover); }
+
+.submitBtn {
+  margin-top: 4px; padding: 13px 0; border-radius: 999px; width: 100%;
+  background: var(--prof-primary); color: white; border: none;
+  font-weight: 700; font-size: 14px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  box-shadow: 0 3px 12px rgba(15,76,129,0.28);
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+.submitBtn:hover:not(:disabled) { background: #15619f; transform: translateY(-1px); }
+.submitBtn:disabled { opacity: 0.65; cursor: not-allowed; }
+
+/* In-form feedback banner (supplements the toast, doesn't replace it) */
+.feedback {
+  display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 12px;
+  font-size: 12.5px; font-weight: 500; margin-bottom: 2px;
+  animation: feedbackIn 0.25s cubic-bezier(0.16,1,0.3,1) both;
+}
+.feedbackSuccess { background: var(--success-dim); color: var(--success); }
+.feedbackError   { background: var(--danger-dim); color: var(--danger); }
+
+@media (prefers-reduced-motion: reduce) {
+  .accountCard, .passwordCard, .feedback { animation: none; }
+  .submitBtn:hover { transform: none; }
+}

@@ -1,12 +1,36 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
-import { FileCheck, CheckCircle, AlertTriangle, Clock, Upload, ArrowRight, Activity } from 'lucide-react'
+import { FileCheck, CheckCircle, AlertTriangle, Clock, Upload, ArrowRight, Activity, Inbox } from 'lucide-react'
 import { declarationAPI } from '../services/api.js'
 import { getUser, hasPermission } from '../utils/auth.js'
 import styles from './Dashboard.module.css'
 
 const StatusBadge = ({ status }) => <span className={`badge badge-${status}`}>{status}</span>
+
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+
+function AnimatedNumber({ value, duration = 800 }) {
+  const [display, setDisplay] = useState(typeof value === 'number' ? 0 : value)
+  const raf = useRef(null)
+
+  useEffect(() => {
+    if (typeof value !== 'number' || prefersReducedMotion()) { setDisplay(value); return }
+    let start = null
+    const tick = (ts) => {
+      if (start === null) start = ts
+      const progress = Math.min((ts - start) / duration, 1)
+      const eased = 1 - Math.pow(1 - progress, 3)
+      setDisplay(Math.round(eased * value))
+      if (progress < 1) raf.current = requestAnimationFrame(tick)
+    }
+    raf.current = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf.current)
+  }, [value, duration])
+
+  return <>{display}</>
+}
 
 export default function Dashboard() {
   const [stats, setStats]   = useState(null)
@@ -34,12 +58,12 @@ export default function Dashboard() {
   if (loading) return (
     <div className={styles.loading}>
       <div className={styles.spinner} />
-      <span>Loading dashboard...</span>
+      <span>Loading your dashboard...</span>
     </div>
   )
 
   const STATUS_COLORS = {
-    uploaded:   '#1a3a8f',
+    uploaded:   '#0f4c81',
     processing: '#7c3aed',
     extracted:  '#7c3aed',
     validated:  '#2563eb',
@@ -53,7 +77,7 @@ export default function Dashboard() {
     .filter(d => d.value > 0)
 
   const cards = [
-    { label: 'Total Documents',    value: stats?.total ?? 0,            sub: 'All time',                   icon: FileCheck,     accent: '#1a3a8f' },
+    { label: 'Total Documents',    value: stats?.total ?? 0,            sub: 'All time',                   icon: FileCheck,     accent: '#0f4c81' },
     { label: 'Processing',         value: stats?.processing ?? 0,       sub: 'Currently in progress',      icon: Activity,      accent: '#7c3aed' },
     { label: 'Waiting Review',     value: stats?.waiting_review ?? 0,   sub: 'Flagged + validated',        icon: AlertTriangle, accent: '#d97706' },
     { label: 'Accepted',           value: stats?.accepted ?? 0,         sub: `${stats?.success_rate ?? 0}% success rate`, icon: CheckCircle, accent: '#0d9f6e' },
@@ -80,42 +104,46 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Stat cards */}
+      {/* Stat cards — one row, hero numbers, watermark icon, accent border */}
       <div className={styles.cards}>
-        {cards.map(c => (
-          <div key={c.label} className={styles.card}>
-            <div className={styles.cardLeft}>
-              <div className={styles.cardLabel}>{c.label}</div>
-              <div className={styles.cardValue}>{c.value}</div>
-              <div className={styles.cardSub}>{c.sub}</div>
-            </div>
-            <div className={styles.cardIcon} style={{ background: `${c.accent}12`, color: c.accent }}>
-              <c.icon size={20} />
-            </div>
+        {cards.map((c, i) => (
+          <div key={c.label} className={styles.card}
+            style={{ borderLeftColor: c.accent, animationDelay: `${i * 50}ms` }}>
+            <c.icon className={styles.cardWatermark} style={{ color: c.accent }} strokeWidth={1.5} />
+            <div className={styles.cardLabel}>{c.label}</div>
+            <div className={styles.cardValue}><AnimatedNumber value={c.value} /></div>
+            <div className={styles.cardSub}>{c.sub}</div>
           </div>
         ))}
       </div>
 
-      {/* Charts */}
+      {/* Bottom section — chart + review, 50/50, full width */}
       <div className={styles.chartsRow}>
         {/* Status pie */}
-        <div className={styles.chartCard}>
+        <div className={styles.chartCard} style={{ animationDelay: '320ms' }}>
           <div className={styles.chartHeader}>
             <div className={styles.chartTitle}><Activity size={15} /> Status Distribution</div>
           </div>
           {pieData.length > 0 ? (
             <div className={styles.pieWrap}>
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} dataKey="value" paddingAngle={2}>
-                    {pieData.map((e, i) => <Cell key={i} fill={e.color} />)}
-                  </Pie>
-                  <Tooltip contentStyle={{ background: 'white', border: '1px solid #e2e6ed', borderRadius: 8, fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                </PieChart>
-              </ResponsiveContainer>
+              <div className={styles.pieChartBox}>
+                <ResponsiveContainer width="100%" height={260}>
+                  <PieChart>
+                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={78} outerRadius={112} dataKey="value"
+                      paddingAngle={3} cornerRadius={8} stroke="var(--card)" strokeWidth={2}>
+                      {pieData.map((e, i) => <Cell key={i} fill={e.color} />)}
+                    </Pie>
+                    <Tooltip contentStyle={{ background: 'white', border: '1px solid #e2e6ed', borderRadius: 10, fontSize: 12, boxShadow: '0 8px 24px rgba(15,76,129,0.12)' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className={styles.pieCenter}>
+                  <div className={styles.pieCenterValue}>{stats?.total ?? 0}</div>
+                  <div className={styles.pieCenterLabel}>documents</div>
+                </div>
+              </div>
               <div className={styles.pieLegend}>
                 {pieData.map(d => (
-                  <div key={d.name} className={styles.legendRow}>
+                  <div key={d.name} className={styles.legendChip}>
                     <span className={styles.legendDot} style={{ background: d.color }} />
                     <span className={styles.legendName}>{d.name}</span>
                     <span className={styles.legendNum}>{d.value}</span>
@@ -125,15 +153,15 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className={styles.emptyChart}>
-              <FileCheck size={32} strokeWidth={1.5} />
-              <span>No data yet</span>
-              {canUpload && <Link to="/upload" className={styles.emptyLink}>Upload first document →</Link>}
+              <div className={styles.emptyIcon}><FileCheck size={22} strokeWidth={1.75} /></div>
+              <span>Nothing to chart yet</span>
+              {canUpload && <Link to="/upload" className={styles.emptyLink}>Upload your first document →</Link>}
             </div>
           )}
         </div>
 
         {/* Needs Review — real, actionable data instead of vanity metrics */}
-        <div className={styles.chartCard}>
+        <div className={styles.chartCard} style={{ animationDelay: '370ms' }}>
           <div className={styles.chartHeader}>
             <div className={styles.chartTitle}><AlertTriangle size={15} /> Needs Review</div>
             {needsReview.length > 0 && <Link to="/declarations?status=flagged" className={styles.viewAllLink}>View all</Link>}
@@ -141,7 +169,8 @@ export default function Dashboard() {
           {needsReview.length > 0 ? (
             <div className={styles.reviewList}>
               {needsReview.map(d => (
-                <Link to={`/declarations/${d.id}`} key={d.id} className={styles.reviewItem}>
+                <Link to={`/declarations/${d.id}`} key={d.id} className={styles.reviewItem}
+                  style={{ borderLeftColor: STATUS_COLORS[d.status] || 'var(--dash-primary)' }}>
                   <div className={styles.reviewItemMain}>
                     <span className={styles.reviewItemFile}>{d.filename}</span>
                     <span className={styles.reviewItemSub}>{d.consignee || 'No consignee detected'}</span>
@@ -152,21 +181,25 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className={styles.emptyChart}>
-              <CheckCircle size={32} strokeWidth={1.5} />
-              <span>Nothing needs review right now</span>
+              <div className={`${styles.emptyIcon} ${styles.emptyIconSuccess}`}><CheckCircle size={22} strokeWidth={1.75} /></div>
+              <span>All caught up — nothing needs review right now.</span>
             </div>
           )}
         </div>
       </div>
 
       {/* Recent declarations */}
-      <div className={styles.tableCard}>
+      <div className={styles.tableCard} style={{ animationDelay: '420ms' }}>
         <div className={styles.tableHeader}>
           <div className={styles.tableTitle}>Recent Declarations</div>
           <Link to="/declarations" className={styles.viewAllLink}>View all <ArrowRight size={13} /></Link>
         </div>
         {recent.length === 0 ? (
-          <div className={styles.emptyTable}>No declarations yet. {canUpload && <Link to="/upload">Upload a document to get started.</Link>}</div>
+          <div className={styles.emptyTable}>
+            <div className={styles.emptyIcon}><Inbox size={22} strokeWidth={1.75} /></div>
+            <span>No declarations yet.</span>
+            {canUpload && <Link to="/upload" className={styles.emptyLink}>Upload a document to get started →</Link>}
+          </div>
         ) : (
           <table className={styles.table}>
             <thead>

@@ -1,16 +1,12 @@
+/* Plain, compact — no per-field card/border. Only the confidence badge
+   and "Corrected" text (below) flag anything that needs attention. */
 .field {
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1.5px solid var(--border);
-  transition: border-color 0.2s;
+  padding: 4px 0;
 }
 
-.field_high   { border-color: rgba(13,159,110,0.35); background: rgba(13,159,110,0.03); }
-.field_medium { border-color: rgba(245,158,11,0.35); background: rgba(245,158,11,0.03); }
-.field_low    { border-color: rgba(220,38,38,0.40);  background: rgba(220,38,38,0.04); }
-.field_neutral{ border-color: var(--border); }
+.field_high, .field_medium, .field_low, .field_neutral {}
 
-.corrected { border-style: dashed; }
+.corrected {}
 
 .labelRow {
   display: flex;
@@ -32,13 +28,17 @@
 .badges { display: flex; align-items: center; gap: 5px; }
 
 .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 10px;
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
 }
 
-.badge_high   { background: rgba(13,159,110,0.12); color: #0d9f6e; }
+.badgeDot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
 .badge_medium { background: rgba(245,158,11,0.12); color: #d97706; }
 .badge_low    { background: rgba(220,38,38,0.12);  color: #dc2626; }
 
