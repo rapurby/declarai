@@ -9,6 +9,7 @@ import Login from './pages/Login.jsx'
 import Register from './pages/Register.jsx'
 import Users from './pages/Users.jsx'
 import Scan from './pages/Scan.jsx'
+import Profile from './pages/Profile.jsx'
 import { isAuthenticated } from './utils/auth.js'
 
 function PrivateRoute({ children }) {
@@ -34,6 +35,7 @@ export default function App() {
           <Route path="declarations"     element={<Declarations />} />
           <Route path="declarations/:id" element={<DeclarationDetail />} />
           <Route path="users"            element={<Users />} />
+          <Route path="profile"          element={<Profile />} />
         </Route>
       </Routes>
     </>

@@ -1,5 +1,5 @@
 ﻿import { Outlet, NavLink, useNavigate, Navigate } from 'react-router-dom'
-import { LayoutDashboard, Upload, FileText, Users, LogOut, ChevronDown, Zap } from 'lucide-react'
+import { LayoutDashboard, Upload, FileText, Users, LogOut, ChevronDown, Zap, KeyRound } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { getUser, logout, isAuthenticated } from '../../utils/auth.js'
 import styles from './Layout.module.css'
@@ -86,6 +86,9 @@ export default function Layout() {
               <div className={styles.dropdown}>
                 <div className={styles.dropEmail}>{user?.email}</div>
                 <div className={styles.dropDivider} />
+                <button className={styles.dropLogout} onClick={() => { setMenuOpen(false); navigate('/profile') }}>
+                  <KeyRound size={13} /> Change Password
+                </button>
                 <button className={styles.dropLogout} onClick={handleLogout}>
                   <LogOut size={13} /> Sign Out
                 </button>

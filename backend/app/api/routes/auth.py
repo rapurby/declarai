@@ -44,3 +44,23 @@ async def get_me(current_user: User = Depends(require_role("admin", "operator", 
     return UserResponse(id=str(current_user.id), email=current_user.email,
                         full_name=current_user.full_name, role=current_user.role,
                         is_active=current_user.is_active)
+
+@router.post("/change-password", status_code=200)
+async def change_password(
+    body: dict,
+    current_user: User = Depends(require_role("admin", "operator", "viewer")),
+    db: AsyncSession = Depends(get_db),
+):
+    current_pw  = body.get("current_password", "")
+    new_pw      = body.get("new_password", "")
+
+    if not current_pw or not new_pw:
+        raise HTTPException(status_code=400, detail="current_password and new_password are required")
+    if len(new_pw) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+    if not verify_password(current_pw, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+    current_user.hashed_password = hash_password(new_pw)
+    await db.commit()
+    return {"ok": True, "message": "Password changed successfully"}
