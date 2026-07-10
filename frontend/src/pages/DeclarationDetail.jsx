@@ -174,12 +174,12 @@ export default function DeclarationDetail() {
   const pct = (n) => lineItems.length ? Math.round((n / lineItems.length) * 100) : 0
 
   const STATS = [
-    { label: 'Total Nilai Dokumen', value: `${decl.currency || ''} ${totalValue.toLocaleString()}`, sub: 'Nilai keseluruhan dokumen', icon: FileText, tone: 'blue' },
-    { label: 'Total Item',          value: lineItems.length,                                          sub: 'item diekstrak',            icon: Package, tone: 'green' },
-    { label: 'Rata-rata Validasi',  value: `${val.score ?? 0}%`,                                       sub: 'Skor validasi keseluruhan',  icon: ShieldCheck, tone: 'purple' },
-    { label: 'Terverifikasi',       value: verifiedCount,                                              sub: `${pct(verifiedCount)}% dari total`, icon: CheckCircle, tone: 'green' },
-    { label: 'Perlu Review',        value: reviewCount,                                                sub: `${pct(reviewCount)}% dari total`,   icon: Clock, tone: 'orange' },
-    { label: 'Tidak Sesuai',        value: mismatchCount,                                              sub: `${pct(mismatchCount)}% dari total`, icon: XCircle, tone: 'red' },
+    { label: 'Total Document Value', value: `${decl.currency || ''} ${totalValue.toLocaleString()}`, sub: 'Overall document value',     icon: FileText, tone: 'blue' },
+    { label: 'Total Items',          value: lineItems.length,                                          sub: 'items extracted',            icon: Package, tone: 'green' },
+    { label: 'Avg. Validation',      value: `${val.score ?? 0}%`,                                     sub: 'Overall validation score',   icon: ShieldCheck, tone: 'purple' },
+    { label: 'Verified',             value: verifiedCount,                                             sub: `${pct(verifiedCount)}% of total`, icon: CheckCircle, tone: 'green' },
+    { label: 'Needs Review',         value: reviewCount,                                               sub: `${pct(reviewCount)}% of total`,   icon: Clock, tone: 'orange' },
+    { label: 'Mismatched',           value: mismatchCount,                                             sub: `${pct(mismatchCount)}% of total`, icon: XCircle, tone: 'red' },
   ]
 
   // --- Line items pagination (presentational only — preserves original index
@@ -479,6 +479,20 @@ export default function DeclarationDetail() {
               </div>
             ) : (
               <div className={styles.empty}>Declaration has not been submitted yet.</div>
+            )}
+            {decl.notes && (
+              <div style={{
+                marginTop: 16,
+                background: decl.status === 'rejected' ? 'rgba(198,40,40,0.06)' : decl.status === 'accepted' ? 'rgba(13,159,110,0.06)' : 'var(--bg)',
+                border: `1px solid ${decl.status === 'rejected' ? 'rgba(198,40,40,0.25)' : decl.status === 'accepted' ? 'rgba(13,159,110,0.25)' : 'var(--border)'}`,
+                borderRadius: 10, padding: '14px 16px',
+              }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6,
+                  color: decl.status === 'rejected' ? '#c62828' : decl.status === 'accepted' ? '#0d9f6e' : 'var(--text-muted)' }}>
+                  Notes from CEISA Officer
+                </div>
+                <div style={{ fontSize: 13.5, color: 'var(--text-primary)', lineHeight: 1.55 }}>{decl.notes}</div>
+              </div>
             )}
           </div>
         )}
