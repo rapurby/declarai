@@ -65,6 +65,8 @@ class DeclarationResponse(BaseModel):
     container_marks: Optional[str]
     bc11_number: Optional[str]
 
+    notes: Optional[str] = None
+
     llm_extracted: Optional[dict]
     ai_insight: Optional[dict]
     validation_result: Optional[dict]
