@@ -23,3 +23,5 @@ class Settings(BaseSettings):
         env_file = ".env"
 
 settings = Settings()
+print("DATABASE_URL =", settings.DATABASE_URL)
+print("ASYNC_DATABASE_URL =", settings.ASYNC_DATABASE_URL)
