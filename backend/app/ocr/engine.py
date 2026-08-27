@@ -69,7 +69,7 @@ def _pdf_to_images(file_bytes: bytes) -> list:
         doc = fitz.open(stream=file_bytes, filetype="pdf")
         images = []
         for page in doc:
-            mat = fitz.Matrix(200 / 72, 200 / 72)  # 200 DPI
+            mat = fitz.Matrix(150 / 72, 150 / 72)  # 150 DPI — lower memory footprint on constrained hosts
             pix = page.get_pixmap(matrix=mat)
             img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
             if pix.n == 4:  # RGBA → RGB
@@ -80,7 +80,7 @@ def _pdf_to_images(file_bytes: bytes) -> list:
         return images
     except ImportError:
         from pdf2image import convert_from_bytes
-        pil_images = convert_from_bytes(file_bytes, dpi=200)
+        pil_images = convert_from_bytes(file_bytes, dpi=150)
         return [np.array(img) for img in pil_images]
 
 def run_ocr(file_bytes: bytes, content_type: str = "image/jpeg") -> list:

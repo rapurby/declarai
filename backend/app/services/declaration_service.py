@@ -14,13 +14,14 @@ from app.core.config import settings
 from app.core.database import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
-# Reduced from 4 -> 2: each OCR job can itself spawn up to 2 onnxruntime
-# threads (see app/ocr/engine.py), so 4 concurrent executor slots could mean
-# up to 8 CPU threads fighting at once on a small instance — exactly what
-# caused other users' requests to lag whenever someone uploaded. 2 slots
-# keeps a predictable CPU budget while still letting 2 declarations process
-# in parallel.
-_executor = ThreadPoolExecutor(max_workers=2)
+# Reduced from 4 -> 2 -> 1: each OCR job loads a RapidOCR model + spawns
+# onnxruntime threads (see app/ocr/engine.py), which is memory-hungry on a
+# 512MB host (Render free/Starter tier). Running 2 declarations in parallel
+# meant 2 OCR sessions + 2 sets of PDF image buffers in memory at once,
+# which was enough to trigger OOM restarts. 1 worker serializes processing
+# (uploads queue instead of running concurrently) but keeps peak memory to
+# a single OCR session — the right tradeoff on a memory-constrained host.
+_executor = ThreadPoolExecutor(max_workers=1)
 
 os.makedirs(settings.FILE_STORAGE_PATH, exist_ok=True)
 
