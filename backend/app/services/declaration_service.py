@@ -1,4 +1,5 @@
-import time, logging, uuid, os, asyncio
+import time, logging, uuid, os, asyncio, base64
+from io import BytesIO
 from concurrent.futures import ThreadPoolExecutor
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, delete
@@ -10,6 +11,7 @@ from app.llm.extractor import extract_fields
 from app.validator.ceisa_rules import validate
 from app.ceisa.formatter import format_for_ceisa
 from app.ceisa.gateway import submit_to_ceisa
+from app.ceisa.excel_exporter import build_aju_excel
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal
 
@@ -216,6 +218,25 @@ async def submit_declaration(declaration_id: str, db: AsyncSession) -> Declarati
     # formatter otomatis unwrap struktur nested {header, line_items, insight}
     # dan membuat satu entri "goods" per line item
     payload = format_for_ceisa(decl.llm_extracted or {}, decl.id, decl.line_items)
+
+    # ASUMSI SEMENTARA — belum terverifikasi ke CEISA (spek teknis H2H API
+    # ada di ceisa40.gitbook.io/pia-ceisa40 yang butuh login akun CEISA,
+    # jadi belum bisa kita cek publik). Per arahan tim: CEISA hanya mau
+    # terima file Excel, bukan JSON murni — jadi kita lampirkan Excel AJU
+    # sebagai base64 di dalam payload H2H yang sama (satu submit, satu
+    # request). GANTI logic ini kalau CDP kasih konfirmasi format
+    # attachment yang sebenarnya (bisa jadi multipart, bukan base64-in-JSON).
+    wb = build_aju_excel(decl, decl.items)
+    buf = BytesIO()
+    wb.save(buf)
+    excel_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+    payload["attachment"] = {
+        "filename": f"AJU_{str(decl.id)[:8]}.xlsx",
+        "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "encoding": "base64",
+        "data": excel_b64,
+    }
+
     decl.ceisa_payload = payload
     ceisa_resp = await submit_to_ceisa(payload)
     decl.ceisa_response = ceisa_resp

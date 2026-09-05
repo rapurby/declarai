@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Header
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
@@ -10,8 +10,10 @@ from app.models.audit import AuditLog
 from app.models.user import User
 from app.schemas.declaration import DeclarationResponse, DeclarationListItem, DeclarationUpdate
 from app.services.declaration_service import submit_declaration, get_dashboard_stats, log_audit
+from app.ceisa.excel_exporter import build_aju_excel
 from app.core.config import settings
 from typing import Optional
+from io import BytesIO
 import os, logging
 
 logger = logging.getLogger(__name__)
@@ -61,6 +63,32 @@ async def get_declaration(
     if current_user.role == "operator" and str(decl.operator_id) != str(current_user.id):
         raise HTTPException(status_code=403, detail="Access denied")
     return decl
+
+@router.get("/declarations/{declaration_id}/export-aju-excel",
+            summary="Export declaration as the official CEISA 4.0 Excel AJU template (Excel-upload channel)")
+async def export_aju_excel(
+    declaration_id: str,
+    current_user: User = Depends(require_role("admin", "operator", "viewer")),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(Declaration).where(Declaration.id == declaration_id))
+    decl = result.scalar_one_or_none()
+    if not decl:
+        raise HTTPException(status_code=404, detail="Declaration not found")
+    if current_user.role == "operator" and str(decl.operator_id) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    wb = build_aju_excel(decl, decl.items)
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    filename = f"AJU_{str(decl.id)[:8]}.xlsx"
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 @router.get("/declarations/{declaration_id}/file", summary="View the original uploaded file inline")
 async def get_declaration_file(
