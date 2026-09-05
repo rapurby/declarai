@@ -140,6 +140,7 @@ async def run_pipeline_bg(
             decl.declared_value    = _gf(header, "declared_value")
             decl.fob_value         = _gf(header, "fob_value")
             decl.freight_value     = _gf(header, "freight_value")
+            decl.insurance_value   = _gf(header, "insurance_value")
             decl.cif_value         = _gf(header, "cif_value")
             decl.gross_weight      = _gf(header, "gross_weight")
             decl.net_weight        = _gf(header, "net_weight")

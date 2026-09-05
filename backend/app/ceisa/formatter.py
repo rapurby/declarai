@@ -89,6 +89,7 @@ def format_for_ceisa(extracted: dict, declaration_id: str, line_items: list = No
             "currency":        v("currency"),
             "fob_value":       v("fob_value"),
             "freight_value":   v("freight_value"),
+            "insurance_value": v("insurance_value"),
             "cif_value":       v("cif_value"),
             "cif_idr":         v("cif_idr"),
             "exchange_rate":   v("exchange_rate"),

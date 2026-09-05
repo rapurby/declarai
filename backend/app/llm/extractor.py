@@ -26,6 +26,7 @@ Return this exact structure:
     "declared_value":   {{"value": null, "confidence": 0.0}},
     "fob_value":        {{"value": null, "confidence": 0.0}},
     "freight_value":    {{"value": null, "confidence": 0.0}},
+    "insurance_value":  {{"value": null, "confidence": 0.0}},
     "cif_value":        {{"value": null, "confidence": 0.0}},
     "gross_weight":     {{"value": null, "confidence": 0.0}},
     "net_weight":       {{"value": null, "confidence": 0.0}},
@@ -73,6 +74,7 @@ Rules:
 - insight.confidence_level: "high" ≥0.85, "medium" ≥0.60, "low" <0.60
 - insight.issues: only real problems — [{{"field":"...", "type":"missing|low_confidence|arithmetic", "message":"brief"}}]
 - insight.suggested_action: "auto_approve" | "needs_review" | "cannot_submit"
+- insurance_value: look for "insurance", "premi asuransi", "보험료" etc. If genuinely absent from the document but fob_value/freight_value/cif_value are all present, compute it as cif_value - fob_value - freight_value instead of leaving it null
 - Mandatory: hs_code (per item), consignee, declared_value, currency, description
 - Multilingual: 数量=quantity, 金额=value, 重量=weight, 品名=description, 发票=invoice"""
 
@@ -88,6 +90,7 @@ MOCK_RESULT = {
         "declared_value":   {"value": 15000.00,                       "confidence": 0.91},
         "fob_value":        {"value": 15000.00,                       "confidence": 0.91},
         "freight_value":    {"value": 500.00,                         "confidence": 0.89},
+        "insurance_value":  {"value": 0.00,                           "confidence": 0.60},
         "cif_value":        {"value": 15500.00,                       "confidence": 0.93},
         "gross_weight":     {"value": 125.5,                          "confidence": 0.88},
         "net_weight":       {"value": 110.0,                          "confidence": 0.87},

@@ -138,10 +138,11 @@ CDP_FIXED_HEADER = {
 
 def _compute_insurance(fob, freight, cif):
     """
-    Declaration has no dedicated insurance column, but it's fully
-    derivable from the three values customs already requires: CIF = FOB +
-    Freight + Insurance. Returns None (not 0.0) when we can't compute it,
-    so a genuinely-missing value isn't confused with a verified zero.
+    Fallback for declarations extracted before the insurance_value column
+    existed (or where the LLM genuinely couldn't find it in the source
+    document): derive it from CIF = FOB + Freight + Insurance.
+    Returns None (not 0.0) when we can't compute it, so a genuinely-missing
+    value isn't confused with a verified zero.
     """
     if fob is None or freight is None or cif is None:
         return None
@@ -182,7 +183,12 @@ def build_aju_excel(declaration, items: list) -> Workbook:
     fob_val = g(declaration, "fob_value")
     freight_val = g(declaration, "freight_value")
     cif_val = g(declaration, "cif_value")
-    insurance_val = _compute_insurance(fob_val, freight_val, cif_val)
+    # Prefer the value extracted straight from the source document; only
+    # derive it from CIF-FOB-FREIGHT when that field is genuinely empty
+    # (e.g. declarations processed before this column existed).
+    insurance_val = g(declaration, "insurance_value")
+    if insurance_val is None:
+        insurance_val = _compute_insurance(fob_val, freight_val, cif_val)
 
     # ---- HEADER ----
     ws = wb["HEADER"]

@@ -132,6 +132,8 @@ class Declaration(Base):
 
     freight_value = Column(Float, nullable=True)
 
+    insurance_value = Column(Float, nullable=True)
+
     cif_value = Column(Float, nullable=True)
 
     cif_idr = Column(Float, nullable=True)

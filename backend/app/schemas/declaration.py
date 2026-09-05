@@ -58,6 +58,7 @@ class DeclarationResponse(BaseModel):
     voyage_number: Optional[str]
     fob_value: Optional[float]
     freight_value: Optional[float]
+    insurance_value: Optional[float]
     cif_value: Optional[float]
     cif_idr: Optional[float]
     package_quantity: Optional[int]
@@ -125,6 +126,7 @@ class DeclarationUpdate(BaseModel):
     voyage_number: Optional[str] = None
     fob_value: Optional[float] = None
     freight_value: Optional[float] = None
+    insurance_value: Optional[float] = None
     cif_value: Optional[float] = None
     cif_idr: Optional[float] = None
     exchange_rate: Optional[float] = None
