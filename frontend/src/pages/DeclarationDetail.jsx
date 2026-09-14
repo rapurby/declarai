@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { CheckCircle, AlertTriangle, Send, Edit3, Save, X, ArrowLeft, Clock, FileText, Package, ShieldCheck, XCircle, ChevronLeft, ChevronRight } from 'lucide-react'
+import { CheckCircle, AlertTriangle, Send, Edit3, Save, X, ArrowLeft, Clock, FileText, Package, ShieldCheck, XCircle, ChevronLeft, ChevronRight, Table2, List, Download } from 'lucide-react'
 import { declarationAPI, getWsUrl } from '../services/api.js'
 import { getUser, hasPermission } from '../utils/auth.js'
 import InsightPanel from '../components/InsightPanel.jsx'
@@ -32,6 +32,22 @@ const MANDATORY = ['consignee','declared_value','currency']
 const TABS = ['Overview', 'Insight', 'Audit Trail', 'CEISA Response']
 const ITEMS_PER_PAGE = 5
 
+// Sheets written by CDP/backend/app/ceisa/excel_exporter.py::build_aju_excel
+// (order matches SHEET_ORDER there for the sheets we actually populate).
+const EXCEL_SHEETS = ['HEADER', 'ENTITAS', 'DOKUMEN', 'PENGANGKUT', 'KEMASAN', 'BARANG']
+// HEADER_COLUMNS in excel_exporter.py has 107 columns total; only a subset
+// carries real data today (see headerRows below) — the rest are written
+// blank, same as an out-of-the-box PIB with no bonded/excise/FTZ sections.
+const HEADER_TOTAL_COLS = 107
+
+const confDot = (confidence) => {
+  if (confidence === undefined || confidence === null) return null
+  if (confidence >= 0.85) return 'hi'
+  if (confidence >= 0.60) return 'med'
+  return 'low'
+}
+const fmtNum = (n) => (n === undefined || n === null ? '—' : n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
+
 export default function DeclarationDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -49,6 +65,8 @@ export default function DeclarationDetail() {
   // Presentational-only — paginates the already-loaded line items, no new fetches.
   const [itemsPage, setItemsPage] = useState(1)
   const [showAllItems, setShowAllItems] = useState(false)
+  const [excelView, setExcelView] = useState(false)
+  const [activeSheet, setActiveSheet] = useState('HEADER')
   const wsRef = useRef(null)
 
   const user = getUser()
@@ -98,6 +116,22 @@ export default function DeclarationDetail() {
   const handleViewDoc = () => {
     const url = declarationAPI.getFileUrl(decl.id)
     window.open(url, '_blank')
+  }
+
+  const handleDownloadExcel = async () => {
+    try {
+      const res = await declarationAPI.exportAjuExcel(decl.id)
+      const url = window.URL.createObjectURL(new Blob([res.data]))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `AJU_${String(decl.id).slice(0, 8)}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } catch {
+      toast.error('Failed to download Excel file')
+    }
   }
 
   const startEditItem = (i, item) => {
@@ -182,6 +216,61 @@ export default function DeclarationDetail() {
     { label: 'Mismatched',           value: mismatchCount,                                             sub: `${pct(mismatchCount)}% of total`, icon: XCircle, tone: 'red' },
   ]
 
+  // --- Excel AJU preview (mirrors CDP/backend/app/ceisa/excel_exporter.py::
+  // build_aju_excel — same fields, same sheets, same fallback logic) ---
+  const insuranceVal = decl.insurance_value ?? (
+    decl.fob_value != null && decl.freight_value != null && decl.cif_value != null
+      ? Math.round((decl.cif_value - decl.fob_value - decl.freight_value) * 100) / 100
+      : null
+  )
+  const headerRows = [
+    { label: 'KODE DOKUMEN', value: '20' },
+    { label: 'KODE KANTOR', value: '051000' },
+    { label: 'KODE PELABUHAN BONGKAR', value: 'IDJBK' },
+    { label: 'KODE PELABUHAN MUAT', value: decl.port_of_loading || '—', conf: confDot(ext.port_of_loading?.confidence) },
+    { label: 'KODE PELABUHAN TRANSIT', value: decl.port_of_transit || '—', conf: confDot(ext.port_of_transit?.confidence) },
+    { label: 'NOMOR BC11', value: decl.bc11_number || '—', conf: confDot(ext.bc11_number?.confidence) },
+    { label: 'ASURANSI', value: fmtNum(insuranceVal) },
+    { label: 'NILAI BARANG', value: fmtNum(decl.declared_value), conf: confDot(ext.declared_value?.confidence) },
+    { label: 'FREIGHT', value: fmtNum(decl.freight_value), conf: confDot(ext.freight_value?.confidence) },
+    { label: 'FOB', value: fmtNum(decl.fob_value), conf: confDot(ext.fob_value?.confidence) },
+    { label: 'CIF', value: fmtNum(decl.cif_value), conf: confDot(ext.cif_value?.confidence) },
+    { label: 'NDPBM', value: fmtNum(decl.exchange_rate) },
+    { label: 'BRUTO', value: fmtNum(decl.gross_weight), conf: confDot(ext.gross_weight?.confidence) },
+    { label: 'NETTO', value: fmtNum(decl.net_weight), conf: confDot(ext.net_weight?.confidence) },
+    { label: 'KODE VALUTA', value: decl.currency || '—', conf: confDot(ext.currency?.confidence) },
+  ]
+  const headerRemaining = HEADER_TOTAL_COLS - headerRows.length
+
+  const entitasRows = [
+    { seri: 1, kode: '1 (Importir)', nomor: decl.npwp_consignee || '—', nama: decl.consignee || '—', negara: '—' },
+    { seri: 2, kode: '9 (Shipper)', nomor: '—', nama: decl.shipper || '—', negara: decl.country_of_origin || '—', negaraConf: confDot(ext.country_of_origin?.confidence) },
+  ]
+
+  const dokumenRows = []
+  if (decl.invoice_number) dokumenRows.push({ seri: dokumenRows.length + 1, kode: '380 (Invoice)', nomor: decl.invoice_number, tanggal: decl.invoice_date || '—' })
+  if (decl.bl_number) dokumenRows.push({ seri: dokumenRows.length + 1, kode: '705 (B/L)', nomor: decl.bl_number, tanggal: '—' })
+
+  const pengangkutRows = decl.vessel_name
+    ? [{ seri: 1, kode: '1 (Laut)', nama: decl.vessel_name, nomor: decl.voyage_number || '—' }]
+    : []
+
+  const kemasanRows = decl.package_quantity
+    ? [{ seri: 1, kode: decl.package_type || '—', jumlah: decl.package_quantity }]
+    : []
+
+  const barangRows = lineItems.map((item, i) => ({
+    seri: item.no ?? item.item_no ?? i + 1,
+    hs: item.hs_code || '—',
+    uraian: item.description || '—',
+    satuan: item.unit || '—',
+    jumlah: item.quantity ?? '—',
+    harga: item.unit_price != null ? item.unit_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—',
+    nilai: item.total_value != null ? item.total_value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—',
+    asal: item.country_of_origin || '—',
+    conf: confDot(item.confidence),
+  }))
+
   // --- Line items pagination (presentational only — preserves original index
   // for expandedItem/editingItem/handleSaveItem, which all key off it) ---
   const indexedItems = lineItems.map((item, i) => ({ item, i }))
@@ -216,6 +305,13 @@ export default function DeclarationDetail() {
                   {decl.created_at && <span>{new Date(decl.created_at).toLocaleString()}</span>}
                   <button className={styles.viewDocBtn} onClick={handleViewDoc} title="View original uploaded file">
                     <FileText size={12} /> View Document
+                  </button>
+                  <button
+                    className={styles.excelToggleBtn + (excelView ? ' ' + styles.excelToggleBtnActive : '')}
+                    onClick={() => setExcelView(v => !v)}
+                    title="Lihat data hasil ekstraksi sebagai pratinjau Excel AJU"
+                  >
+                    {excelView ? <><List size={12} /> Kembali ke List View</> : <><Table2 size={12} /> Lihat sebagai Excel</>}
                   </button>
                 </div>
               </div>
@@ -302,6 +398,8 @@ export default function DeclarationDetail() {
 
         {activeTab === 0 && (
           <div className={styles.overviewGrid}>
+            {!excelView && (
+            <>
             <div className={styles.itemsPanel}>
               <div className={styles.panelTitle}>Rincian Barang {lineItems.length > 0 && `(${lineItems.length} item)`}</div>
               {lineItems.length > 0 ? (
@@ -431,6 +529,164 @@ export default function DeclarationDetail() {
                 <div className={styles.validationEmpty}><CheckCircle size={20} /> No validation issues found.</div>
               )}
             </div>
+            </>
+            )}
+
+            {excelView && (
+              <div className={styles.excelPanel} style={{ gridColumn: '1 / -1' }}>
+                <div className={styles.excelHead}>
+                  <div className={styles.panelTitle} style={{ marginBottom: 0 }}>Excel AJU Preview</div>
+                  <button className={styles.downloadXlsBtn} onClick={handleDownloadExcel} title="Unduh file .xlsx yang sama persis dengan pratinjau ini">
+                    <Download size={13} /> Download Excel (.xlsx)
+                  </button>
+                </div>
+                <div className={styles.excelHint}>
+                  Ini persis struktur &amp; kolom yang akan ditulis ke file <b>AJU_{String(decl.id).slice(0, 8).toUpperCase()}.xlsx</b> saat submit ke CEISA — bukan file terpisah, cukup pratinjau di halaman ini.
+                </div>
+
+                <div className={styles.sheetTabsRow}>
+                  {EXCEL_SHEETS.map(s => (
+                    <div key={s}
+                      className={styles.sheetTab + (activeSheet === s ? ' ' + styles.sheetTabActive : '')}
+                      onClick={() => setActiveSheet(s)}>{s}</div>
+                  ))}
+                </div>
+
+                {activeSheet === 'HEADER' && (
+                  <div className={styles.xlsWrap + ' ' + styles.fvSheet}>
+                    <table className={styles.xlsTable}>
+                      <thead><tr><th className={styles.rownum}>#</th><th>Field</th><th>Nilai</th></tr></thead>
+                      <tbody>
+                        {headerRows.map((r, i) => (
+                          <tr key={r.label}>
+                            <td className={styles.rownum}>{i + 1}</td>
+                            <td className={styles.xlsFieldCell}>
+                              {r.label}
+                              {r.conf && <span className={styles.confDot + ' ' + styles['confDot_' + r.conf]} />}
+                            </td>
+                            <td>{r.value}</td>
+                          </tr>
+                        ))}
+                        <tr>
+                          <td className={styles.rownum}>…</td>
+                          <td className={styles.xlsMuted}>+{headerRemaining} kolom lain</td>
+                          <td className={styles.xlsMuted}>—</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {activeSheet === 'ENTITAS' && (
+                  <div className={styles.xlsWrap}>
+                    <table className={styles.xlsTable}>
+                      <thead><tr><th className={styles.rownum}>#</th><th>SERI</th><th>KODE ENTITAS</th><th>NOMOR IDENTITAS</th><th>NAMA ENTITAS</th><th>KODE NEGARA</th></tr></thead>
+                      <tbody>
+                        {entitasRows.map((r, i) => (
+                          <tr key={i}>
+                            <td className={styles.rownum}>{i + 1}</td>
+                            <td>{r.seri}</td>
+                            <td>{r.kode}</td>
+                            <td>{r.nomor}</td>
+                            <td>{r.nama}</td>
+                            <td className={styles.xlsCellRel}>
+                              {r.negara}
+                              {r.negaraConf && <span className={styles.confDot + ' ' + styles['confDot_' + r.negaraConf]} />}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {activeSheet === 'DOKUMEN' && (
+                  dokumenRows.length > 0 ? (
+                    <div className={styles.xlsWrap}>
+                      <table className={styles.xlsTable}>
+                        <thead><tr><th className={styles.rownum}>#</th><th>SERI</th><th>KODE DOKUMEN</th><th>NOMOR DOKUMEN</th><th>TANGGAL DOKUMEN</th></tr></thead>
+                        <tbody>
+                          {dokumenRows.map((r, i) => (
+                            <tr key={i}>
+                              <td className={styles.rownum}>{i + 1}</td>
+                              <td>{r.seri}</td><td>{r.kode}</td><td>{r.nomor}</td><td>{r.tanggal}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : <div className={styles.empty}>Tidak ada dokumen referensi (invoice/B-L) yang terekstrak.</div>
+                )}
+
+                {activeSheet === 'PENGANGKUT' && (
+                  pengangkutRows.length > 0 ? (
+                    <div className={styles.xlsWrap}>
+                      <table className={styles.xlsTable}>
+                        <thead><tr><th className={styles.rownum}>#</th><th>SERI</th><th>KODE CARA ANGKUT</th><th>NAMA PENGANGKUT</th><th>NOMOR PENGANGKUT</th></tr></thead>
+                        <tbody>
+                          {pengangkutRows.map((r, i) => (
+                            <tr key={i}>
+                              <td className={styles.rownum}>{i + 1}</td>
+                              <td>{r.seri}</td>
+                              <td className={styles.xlsCellRel}>{r.kode}<span className={styles.confDot + ' ' + styles.confDot_med} /></td>
+                              <td>{r.nama}</td><td>{r.nomor}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : <div className={styles.empty}>Tidak ada data pengangkut (nama kapal) yang terekstrak.</div>
+                )}
+
+                {activeSheet === 'KEMASAN' && (
+                  kemasanRows.length > 0 ? (
+                    <div className={styles.xlsWrap}>
+                      <table className={styles.xlsTable}>
+                        <thead><tr><th className={styles.rownum}>#</th><th>SERI</th><th>KODE KEMASAN</th><th>JUMLAH KEMASAN</th></tr></thead>
+                        <tbody>
+                          {kemasanRows.map((r, i) => (
+                            <tr key={i}>
+                              <td className={styles.rownum}>{i + 1}</td>
+                              <td>{r.seri}</td>
+                              <td className={styles.xlsCellRel}>{r.kode}<span className={styles.confDot + ' ' + styles.confDot_med} /></td>
+                              <td>{r.jumlah}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : <div className={styles.empty}>Tidak ada data kemasan yang terekstrak.</div>
+                )}
+
+                {activeSheet === 'BARANG' && (
+                  barangRows.length > 0 ? (
+                    <div className={styles.xlsWrap}>
+                      <table className={styles.xlsTable}>
+                        <thead><tr><th className={styles.rownum}>#</th><th>SERI</th><th>HS</th><th>URAIAN</th><th>SATUAN</th><th>JML</th><th>HARGA SATUAN</th><th>NILAI BARANG</th><th>ASAL</th></tr></thead>
+                        <tbody>
+                          {barangRows.map((r, i) => (
+                            <tr key={i}>
+                              <td className={styles.rownum}>{i + 1}</td>
+                              <td>{r.seri}</td>
+                              <td className={styles.xlsCellRel}>
+                                {r.hs}
+                                {r.conf && <span className={styles.confDot + ' ' + styles['confDot_' + r.conf]} />}
+                              </td>
+                              <td>{r.uraian}</td><td>{r.satuan}</td><td>{r.jumlah}</td><td>{r.harga}</td><td>{r.nilai}</td><td>{r.asal}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : <div className={styles.empty}>No items extracted from this document.</div>
+                )}
+
+                <div className={styles.excelFooter}>
+                  <span>🟢 dot = confidence tinggi &nbsp; 🟠 = perlu dicek &nbsp; 🔴 = rendah/perlu mapping kode</span>
+                  <span><b>{val.score ?? 0}%</b> skor kesiapan Excel</span>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

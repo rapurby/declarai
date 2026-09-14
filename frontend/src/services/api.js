@@ -53,6 +53,7 @@ export const declarationAPI = {
   stats: () => api.get('/declarations/stats'),
   status: (id) => api.get(`/status/${id}`),
   audit: (id) => api.get(`/declarations/${id}/audit`),
+  exportAjuExcel: (id) => api.get(`/declarations/${id}/export-aju-excel`, { responseType: 'blob' }),
 }
 
 export const authAPI = {

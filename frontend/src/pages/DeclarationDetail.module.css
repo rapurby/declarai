@@ -51,6 +51,11 @@
 .viewDocBtn { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--card); color: var(--det-primary); font-size: 12px; font-weight: 600; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; }
 .viewDocBtn:hover { background: var(--det-primary-soft); border-color: var(--det-primary); }
 
+.excelToggleBtn { composes: viewDocBtn; }
+.excelToggleBtn:hover { background: var(--det-primary-soft); border-color: var(--det-primary); }
+.excelToggleBtnActive { background: var(--success-dim); color: var(--success); border-color: transparent; }
+.excelToggleBtnActive:hover { background: rgba(13,159,110,0.18); }
+
 .fieldsGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px 24px; }
 
 /* Score panel */
@@ -176,6 +181,40 @@
 .vErrIcon  { color: var(--danger); flex-shrink: 0; margin-top: 1px; }
 .validationItemError { background: var(--danger-dim); color: var(--danger); }
 .validationEmpty { display: flex; align-items: center; gap: 8px; color: var(--success); font-size: 13px; padding: 20px 4px; }
+
+/* ---------- Excel AJU preview ---------- */
+.excelPanel { background: var(--card); border-radius: 18px; padding: 20px 22px 22px; box-shadow: var(--det-shadow); animation: fadeIn 0.25s ease both; }
+.excelHead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; gap: 12px; }
+.downloadXlsBtn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1px solid transparent; border-radius: 999px; background: var(--success-dim); color: var(--success); font-size: 12.5px; font-weight: 700; cursor: pointer; flex-shrink: 0; transition: background 0.15s ease; }
+.downloadXlsBtn:hover { background: rgba(13,159,110,0.18); }
+.excelHint { font-size: 11.5px; color: var(--text-muted); margin-bottom: 16px; }
+.excelHint b { color: var(--text-secondary); }
+
+.sheetTabsRow { display: flex; gap: 4px; background: var(--bg-elevated); padding: 4px; border-radius: 10px; width: fit-content; margin-bottom: 16px; overflow-x: auto; max-width: 100%; }
+.sheetTab { padding: 7px 14px; border-radius: 7px; font-size: 11.5px; font-weight: 700; color: var(--text-muted); cursor: pointer; white-space: nowrap; font-family: var(--font-mono); transition: background 0.15s ease, color 0.15s ease; }
+.sheetTab:hover { color: var(--text-secondary); }
+.sheetTabActive { background: var(--card); color: var(--det-primary); box-shadow: 0 1px 3px rgba(15,23,42,0.08); }
+
+.xlsWrap { overflow-x: auto; border: 1px solid var(--border-light); border-radius: 10px; }
+.xlsTable { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+.xlsTable th { background: #fbfcfe; color: var(--text-muted); font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.03em; padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border-light); white-space: nowrap; }
+.xlsTable td { padding: 9px 12px; border-bottom: 1px solid var(--border-light); border-right: 1px solid var(--border-light); white-space: nowrap; position: relative; }
+.xlsTable td:last-child { border-right: none; }
+.xlsTable tbody tr:hover td { background: var(--bg-elevated); }
+.rownum { background: #fbfcfe; color: var(--text-muted); font-family: var(--font-mono); font-weight: 700; font-size: 10.5px; text-align: center; width: 30px; }
+.xlsMuted { color: var(--text-muted); }
+.xlsCellRel { position: relative; }
+.xlsFieldCell { position: relative; padding-right: 18px; }
+
+.confDot { position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; border-radius: 50%; }
+.confDot_hi { background: var(--success); opacity: 0.55; }
+.confDot_med { background: var(--warning); }
+.confDot_low { background: var(--danger); }
+
+.fvSheet { max-width: 640px; }
+
+.excelFooter { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; font-size: 11.5px; color: var(--text-muted); gap: 12px; flex-wrap: wrap; }
+.excelFooter b { color: var(--text-secondary); }
 
 /* ---------- Audit table ---------- */
 .auditWrap { overflow-x: auto; }
