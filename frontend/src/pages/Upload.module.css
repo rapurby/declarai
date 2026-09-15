@@ -87,6 +87,13 @@
 .fileName { font-size: 14.5px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fileSub  { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 
+/* ---------- Multi-file selection list ---------- */
+.fileList { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.fileListItem { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+.fileProgress { font-size: 12.5px; font-weight: 700; color: var(--up-primary); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.fileRemoveBtn { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; border: none; background: none; color: var(--text-muted); cursor: pointer; flex-shrink: 0; transition: background 0.15s ease, color 0.15s ease; }
+.fileRemoveBtn:hover { background: var(--danger-dim); color: var(--danger); }
+
 /* ---------- Document name — clean inline field ---------- */
 .docNameWrap {
   margin-top: 12px; display: flex; align-items: center; gap: 10px;

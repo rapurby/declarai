@@ -1,21 +1,11 @@
 import { useState, useCallback, useRef } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useNavigate } from 'react-router-dom'
-import { UploadCloud, FileText, FileImage, CheckCircle, AlertCircle, Loader, Zap, Shield, Camera, QrCode, X, Tag } from 'lucide-react'
+import { UploadCloud, FileText, FileImage, AlertCircle, Loader, Zap, Shield, Camera, QrCode, X } from 'lucide-react'
 import { declarationAPI, scanAPI, getWsUrl } from '../services/api.js'
 import { getUser, hasPermission } from '../utils/auth.js'
 import toast from 'react-hot-toast'
 import styles from './Upload.module.css'
-
-const PIPELINE_STAGES = [
-  { key: 'upload',   label: 'Document received' },
-  { key: 'ocr',      label: 'Processing OCR' },
-  { key: 'llm',      label: 'Extracting document information' },
-  { key: 'validate', label: 'Validating extracted data' },
-  { key: 'done',     label: 'Processing complete' },
-]
-
-const STAGE_ORDER = ['upload', 'ocr', 'llm', 'validate', 'done']
 
 function formatFileSize(bytes) {
   if (!bytes && bytes !== 0) return '—'
@@ -31,15 +21,12 @@ function fileTypeMeta(file) {
 }
 
 export default function Upload() {
-  const [file, setFile]           = useState(null)
-  const [docName, setDocName]     = useState('')
-  const [uploading, setUploading] = useState(false)
-  const [currentStage, setCurrentStage] = useState(null)
-  const [stageLabel, setStageLabel]     = useState('')
-  const [result, setResult]       = useState(null)
-  const [error, setError]         = useState(null)
-  const [mode, setMode]           = useState(null)
-  const [qrSession, setQrSession] = useState(null)
+  const [files, setFiles]                 = useState([])
+  const [uploading, setUploading]         = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [error, setError]                 = useState(null)
+  const [mode, setMode]                   = useState(null)
+  const [qrSession, setQrSession]         = useState(null)
   const wsRef = useRef(null)
   const navigate = useNavigate()
 
@@ -54,59 +41,31 @@ export default function Upload() {
     )
   }
 
-  const onDrop = useCallback(accepted => { if (accepted[0]) setFile(accepted[0]) }, [])
+  const onDrop = useCallback(accepted => {
+    if (accepted.length) setFiles(prev => [...prev, ...accepted])
+  }, [])
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop, accept: { 'image/*': [], 'application/pdf': [] }, maxSize: 10 * 1024 * 1024, multiple: false,
+    onDrop, accept: { 'image/*': [], 'application/pdf': [] }, maxSize: 10 * 1024 * 1024, multiple: true,
   })
 
-  const connectWs = (declarationId) => {
-    const wsUrl = getWsUrl('/ws/declaration/' + declarationId)
-    try {
-      const ws = new WebSocket(wsUrl)
-      ws.onmessage = (e) => {
-        try {
-          const data = JSON.parse(e.data)
-          if (data.type === 'stage') {
-            setCurrentStage(data.stage)
-            setStageLabel(data.label || data.stage)
-          } else if (data.type === 'complete') {
-            setCurrentStage('done')
-            setStageLabel('Processing complete')
-            ws.close()
-            // Load full declaration result
-            declarationAPI.get(declarationId).then(r => {
-              setResult(r.data)
-              setUploading(false)
-              toast.success('Document processed successfully!')
-            })
-          } else if (data.type === 'error') {
-            setError(data.message || 'Processing failed')
-            setUploading(false)
-            ws.close()
-            toast.error('Processing failed')
-          }
-        } catch {}
-      }
-      ws.onerror = () => {}
-      wsRef.current = ws
-    } catch {}
-  }
+  const removeFile = (index) => setFiles(prev => prev.filter((_, i) => i !== index))
 
   const handleUpload = async () => {
-    if (!file) return
+    if (files.length === 0) return
     setUploading(true)
     setError(null)
-    setCurrentStage('upload')
-    setStageLabel('Document received')
+    setUploadProgress(0)
 
     try {
-      const res = await declarationAPI.upload(file, undefined, undefined, docName.trim() || undefined)
-      const { declaration_id } = res.data
-      connectWs(declaration_id)
+      const res = await declarationAPI.uploadBatch(files, pct => setUploadProgress(pct))
+      const count = res.data?.count ?? res.data?.declarations?.length ?? files.length
+      toast.success(`${count} document${count === 1 ? '' : 's'} queued for processing`)
+      navigate('/declarations')
     } catch (e) {
-      toast.error(e.response?.data?.detail || 'Upload failed')
+      const msg = e.response?.data?.detail || 'Upload failed'
+      toast.error(msg)
+      setError(msg)
       setUploading(false)
-      setCurrentStage(null)
     }
   }
 
@@ -134,45 +93,12 @@ export default function Upload() {
 
   const qrUrl = qrSession ? window.location.origin + '/scan/' + qrSession.token : null
 
-  const stageIndex = STAGE_ORDER.indexOf(currentStage)
-  const progressPercent = stageIndex >= 0 ? Math.round(((stageIndex + 1) / STAGE_ORDER.length) * 100) : 0
-  const { Icon: FileTypeIcon, label: fileTypeLabel } = fileTypeMeta(file)
-
-  if (result) {
-    const val = result.validation_result || {}
-    return (
-      <div className={styles.page}>
-        <div className={styles.container}>
-          <div className={styles.resultCard}>
-            <div className={styles.resultIconRing + ' ' + (val.valid ? styles.success : styles.warning)}>
-              <div className={styles.resultIcon}>
-                {val.valid ? <CheckCircle size={30}/> : <AlertCircle size={30}/>}
-              </div>
-            </div>
-            <h2 className={styles.resultTitle}>{val.valid ? 'Ready to Submit' : 'Manual Review Required'}</h2>
-            <p className={styles.resultSub}>{val.valid ? 'All fields extracted and validated.' : `${val.flagged_fields?.length || 0} field(s) require review.`}</p>
-            <div className={styles.resultMeta}>
-              <div className={styles.metaItem}><span className={styles.metaLabel}>Score</span><span className={styles.metaValue}>{val.score ?? '—'}/100</span></div>
-              <div className={styles.metaItem}><span className={styles.metaLabel}>Time</span><span className={styles.metaValue}>{result.processing_time_ms ? (result.processing_time_ms/1000).toFixed(1)+'s' : '—'}</span></div>
-              <div className={styles.metaItem}><span className={styles.metaLabel}>Items</span><span className={styles.metaValue}>{result.line_items?.length ?? 1}</span></div>
-              <div className={styles.metaItem}><span className={styles.metaLabel}>Status</span><span className={'badge badge-' + result.status}>{result.status}</span></div>
-            </div>
-            <div className={styles.resultActions}>
-              <button className={styles.secondaryBtn} onClick={() => { setFile(null); setDocName(''); setResult(null); setCurrentStage(null); setMode(null) }}>Upload Another</button>
-              <button className={styles.primaryBtn} onClick={() => navigate('/declarations/' + result.id)}>View & Submit →</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className={styles.page}>
      <div className={styles.container}>
       <div className={styles.header}>
         <h1 className={styles.title}>Upload CIPL Document</h1>
-        <p className={styles.subtitle}>Commercial Invoice, Packing List, or Bill of Lading — JPG, PNG, or PDF up to 10MB</p>
+        <p className={styles.subtitle}>Commercial Invoice, Packing List, or Bill of Lading — JPG, PNG, or PDF up to 10MB each. You can select multiple files.</p>
       </div>
 
       {!mode && (
@@ -185,7 +111,7 @@ export default function Upload() {
           <button className={styles.modeCard} onClick={() => setMode('file')}>
             <div className={styles.modeIconWrap}><UploadCloud size={26} className={styles.modeIcon} /></div>
             <div className={styles.modeTitle}>Upload File</div>
-            <div className={styles.modeSub}>Upload a PDF or image file directly from this device.</div>
+            <div className={styles.modeSub}>Upload one or more PDF or image files directly from this device.</div>
           </button>
         </div>
       )}
@@ -223,70 +149,51 @@ export default function Upload() {
 
       {mode === 'file' && (
         <div className={styles.uploadArea}>
-          <div {...getRootProps()} className={styles.dropzone + (isDragActive ? ' ' + styles.active : '') + (file ? ' ' + styles.hasFile : '')}>
+          <div {...getRootProps()} className={styles.dropzone + (isDragActive ? ' ' + styles.active : '') + (files.length ? ' ' + styles.hasFile : '')}>
             <input {...getInputProps()} />
-            {file ? (
-              <div className={styles.filePreview}>
-                <div className={styles.fileIconWrap}><FileTypeIcon size={26} className={styles.fileIcon}/></div>
-                <div className={styles.fileMeta}>
-                  <div className={styles.fileName}>{file.name}</div>
-                  <div className={styles.fileSub}>{fileTypeLabel} · {formatFileSize(file.size)}</div>
-                </div>
-              </div>
-            ) : (
-              <div className={styles.dropContent}>
-                <div className={styles.dropIconWrap}><UploadCloud size={30} className={styles.dropIcon}/></div>
-                <div className={styles.dropTitle}>{isDragActive ? 'Drop it right here' : 'Drag your document here'}</div>
-                <div className={styles.dropSub}>or <span className={styles.browseLink}>click to browse</span> your files</div>
-              </div>
-            )}
+            <div className={styles.dropContent}>
+              <div className={styles.dropIconWrap}><UploadCloud size={30} className={styles.dropIcon}/></div>
+              <div className={styles.dropTitle}>{isDragActive ? 'Drop them right here' : 'Drag your documents here'}</div>
+              <div className={styles.dropSub}>or <span className={styles.browseLink}>click to browse</span> — multiple files allowed</div>
+            </div>
           </div>
 
-          {file && !uploading && (
-            <div className={styles.docNameWrap}>
-              <Tag size={14} className={styles.docNameIcon} />
-              <input
-                className={styles.docNameInput}
-                type="text"
-                placeholder={`Name this document (optional) — defaults to "${file.name}"`}
-                value={docName}
-                onChange={e => setDocName(e.target.value)}
-                maxLength={120}
-              />
+          {files.length > 0 && (
+            <div className={styles.fileList}>
+              {files.map((f, i) => {
+                const { Icon, label } = fileTypeMeta(f)
+                return (
+                  <div key={`${f.name}-${f.size}-${i}`} className={styles.fileListItem}>
+                    <div className={styles.fileIconWrap}><Icon size={20} className={styles.fileIcon}/></div>
+                    <div className={styles.fileMeta}>
+                      <div className={styles.fileName}>{f.name}</div>
+                      <div className={styles.fileSub}>{label} · {formatFileSize(f.size)}</div>
+                    </div>
+                    {uploading ? (
+                      <div className={styles.fileProgress}>{uploadProgress}%</div>
+                    ) : (
+                      <button className={styles.fileRemoveBtn} onClick={() => removeFile(i)} title="Remove file">
+                        <X size={14}/>
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
 
           {uploading && (
-            <div className={styles.pipeline}>
-              <div className={styles.pipelineHeader}>
-                <span className={styles.pipelineTitle}>Processing your document...</span>
-                <span className={styles.pipelinePercent}>{progressPercent}%</span>
-              </div>
-              <div className={styles.progressTrack}>
-                <div className={styles.progressFill} style={{ width: `${progressPercent}%` }} />
-              </div>
-              <div className={styles.stages}>
-                {PIPELINE_STAGES.map((s) => {
-                  const idx = STAGE_ORDER.indexOf(s.key)
-                  const isDone   = stageIndex > idx
-                  const isActive = stageIndex === idx
-                  return (
-                    <div key={s.key} className={styles.stage + (isDone ? ' ' + styles.done : '') + (isActive ? ' ' + styles.active : '')}>
-                      <div className={styles.stageDot}>
-                        {isDone ? <CheckCircle size={14}/> : isActive ? <Loader size={14} className={styles.spin}/> : <div className={styles.stageDotEmpty}/>}
-                      </div>
-                      <span>{isActive ? stageLabel : s.label}</span>
-                    </div>
-                  )
-                })}
-              </div>
+            <div className={styles.progressTrack} style={{ marginTop: 14 }}>
+              <div className={styles.progressFill} style={{ width: `${uploadProgress}%` }} />
             </div>
           )}
 
           {error && <div className={styles.errorBox}><AlertCircle size={14}/> {error}</div>}
 
-          {file && !uploading && (
-            <button className={styles.submitBtn2} onClick={handleUpload}><Zap size={15}/> Process with AI</button>
+          {files.length > 0 && !uploading && (
+            <button className={styles.submitBtn2} onClick={handleUpload}>
+              <Zap size={15}/> Process {files.length} Document{files.length === 1 ? '' : 's'} with AI
+            </button>
           )}
         </div>
       )}

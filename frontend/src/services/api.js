@@ -40,10 +40,13 @@ export const declarationAPI = {
     const token = localStorage.getItem('declarai_token')
     return `${BASE_URL}/api/v1/declarations/${id}/file?t=${encodeURIComponent(token)}`
   },
-  uploadBatch: (files) => {
+  uploadBatch: (files, onProgress) => {
     const fd = new FormData()
     files.forEach(f => fd.append('files', f))
-    return api.post('/upload/batch', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+    return api.post('/upload/batch', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: e => onProgress?.(Math.round(e.loaded * 100 / e.total)),
+    })
   },
   list: (params) => api.get('/declarations', { params }),
   get: (id) => api.get(`/declarations/${id}`),
