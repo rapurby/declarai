@@ -7,10 +7,10 @@ Reference: template structure confirmed from CDP-provided sample files
 ("EXCEL AJU.xlsx") — HEADER (107 cols), ENTITAS (16 cols), BARANG (70 cols),
 DOKUMEN (7 cols), PENGANGKUT (9 cols) and KEMASAN (6 cols) are actively
 populated from fields the Declaration model already extracts (invoice,
-B/L, vessel/voyage, packaging). The remaining sheets are written with
-their header row only (kept empty) — those sections (bahan baku, cukai,
-jaminan, kontainer, dll) genuinely are out of scope for a standard,
-non-bonded import declaration.
+B/L, vessel/voyage, packaging). The remaining 14 sheets are written with
+their header row only (kept empty, columns read verbatim from the CDP
+sample) — those sections (bahan baku, cukai, jaminan, kontainer, dll)
+genuinely are out of scope for a standard, non-bonded import declaration.
 
 IMPORTANT — known limitation:
 Several CEISA columns expect standardized CODES (country code, port
@@ -118,6 +118,98 @@ PENGANGKUT_COLUMNS = [
 KEMASAN_COLUMNS = [
     "NOMOR AJU", "SERI", "KODE KEMASAN", "JUMLAH KEMASAN", "MEREK",
     "NOMOR SEGEL",
+]
+
+# Column names for the remaining sheets, read verbatim (row 1) from the
+# CDP-provided "EXCEL AJU.xlsx" sample — not populated with data (out of
+# scope for a standard, non-bonded import declaration), but the header row
+# is written so the workbook structure matches the official template.
+KONTAINER_COLUMNS = [
+    "NOMOR AJU", "SERI", "NOMOR KONTINER", "KODE UKURAN KONTAINER",
+    "KODE JENIS KONTAINER", "KODE TIPE KONTAINER", "NOMOR SEGEL",
+]
+
+KOMPONENBIAYA_COLUMNS = [
+    "NOMOR AJU", "JENIS NILAI", "HARGA INVOICE", "PEMBAYARAN TIDAK LANGSUNG",
+    "DISKON", "KOMISI PENJUALAN", "BIAYA PENGEMASAN", "BIAYA PENGEPAKAN",
+    "ASSIST", "ROYALTI", "PROCEEDS", "BIAYA TRANSPORTASI",
+    "BIAYA PEMUATAN", "ASURANSI", "GARANSI", "BIAYA KEPENTINGAN SENDIRI",
+    "BIAYA PASCA IMPOR", "BIAYA PAJAK INTERNAL", "BUNGA", "DEVIDEN",
+]
+
+BARANGTARIF_COLUMNS = [
+    "NOMOR AJU", "SERI BARANG", "KODE PUNGUTAN", "KODE TARIF", "TARIF",
+    "KODE FASILITAS", "TARIF FASILITAS", "NILAI BAYAR", "NILAI FASILITAS",
+    "NILAI SUDAH DILUNASI", "KODE SATUAN", "JUMLAH SATUAN",
+    "FLAG BMT SEMENTARA", "KODE KOMODITI CUKAI", "KODE SUB KOMODITI CUKAI",
+    "FLAG TIS", "FLAG PELEKATAN", "KODE KEMASAN", "JUMLAH KEMASAN",
+]
+
+BARANGDOKUMEN_COLUMNS = [
+    "NOMOR AJU", "SERI BARANG", "SERI DOKUMEN", "SERI IZIN",
+]
+
+BARANGENTITAS_COLUMNS = [
+    "NOMOR AJU", "SERI BARANG", "SERI ENTITAS",
+]
+
+BARANGSPEKKHUSUS_COLUMNS = [
+    "NOMOR AJU", "SERI BARANG", "KODE", "URAIAN",
+]
+
+BARANGVD_COLUMNS = [
+    "NOMOR AJU", "SERI BARANG", "KODE VD", "NILAI BARANG",
+    "BIAYA TAMBAHAN", "BIAYA PENGURANG", "JATUH TEMPO",
+]
+
+BAHANBAKU_COLUMNS = [
+    "NOMOR AJU", "SERI BARANG", "SERI BAHAN BAKU", "KODE ASAL BAHAN BAKU",
+    "HS", "KODE BARANG", "URAIAN", "MEREK", "TIPE", "UKURAN",
+    "SPESIFIKASI LAIN", "KODE SATUAN", "JUMLAH SATUAN", "KODE KEMASAN",
+    "JUMLAH KEMASAN", "KODE DOKUMEN ASAL", "KODE KANTOR ASAL",
+    "NOMOR DAFTAR ASAL", "TANGGAL DAFTAR ASAL", "NOMOR AJU ASAL",
+    "SERI BARANG ASAL", "NETTO", "BRUTO", "VOLUME", "CIF", "CIF RUPIAH",
+    "NDPBM", "HARGA PENYERAHAN", "HARGA PEROLEHAN", "NILAI JASA",
+    "SERI IZIN", "VALUTA", "KODE BKC", "KODE KOMODITI BKC",
+    "KODE SUB KOMODITI BKC", "FLAG TIS", "ISI PER KEMASAN",
+    "JUMLAH DILEKATKAN", "JUMLAH PITA CUKAI", "HJE CUKAI", "TARIF CUKAI",
+]
+
+# NOTE: "KODE SUB KOMODITI CUKAI", "FLAG TIS", "FLAG PELEKATAN" and
+# "KODE KEMASAN" genuinely repeat in the official template's row 1 for this
+# sheet — kept verbatim rather than de-duplicated, per the source file.
+BAHANBAKUTARIF_COLUMNS = [
+    "NOMOR AJU", "SERI BARANG", "SERI BAHAN BAKU", "KODE ASAL BAHAN BAKU",
+    "KODE PUNGUTAN", "KODE TARIF", "TARIF", "KODE FASILITAS",
+    "TARIF FASILITAS", "NILAI BAYAR", "NILAI FASILITAS",
+    "NILAI SUDAH DILUNASI", "KODE SATUAN", "JUMLAH SATUAN",
+    "FLAG BMT SEMENTARA", "KODE KOMODITI CUKAI", "KODE SUB KOMODITI CUKAI",
+    "FLAG TIS", "FLAG PELEKATAN", "KODE KEMASAN", "KODE SUB KOMODITI CUKAI",
+    "FLAG TIS", "FLAG PELEKATAN", "KODE KEMASAN", "JUMLAH KEMASAN",
+]
+
+BAHANBAKUDOKUMEN_COLUMNS = [
+    "NOMOR AJU", "SERI BARANG", "SERI BAHAN BAKU", "KODE_ASAL_BAHAN_BAKU",
+    "SERI DOKUMEN", "SERI IZIN",
+]
+
+PUNGUTAN_COLUMNS = [
+    "NOMOR AJU", "KODE FASILITAS TARIF", "KODE JENIS PUNGUTAN",
+    "NILAI PUNGUTAN", "NPWP BILLING",
+]
+
+JAMINAN_COLUMNS = [
+    "NOMOR AJU", "KODE KANTOR", "KODE JAMINAN", "NOMOR JAMINAN",
+    "TANGGAL JAMINAN", "NILAI JAMINAN", "PENJAMIN", "TANGGAL JATUH TEMPO",
+    "NOMOR BPJ", "TANGGAL BPJ",
+]
+
+BANKDEVISA_COLUMNS = [
+    "NOMOR AJU", "SERI", "KODE", "NAMA",
+]
+
+RESPON_COLUMNS = [
+    "NOMOR AJU", "KODE RESPON", "NOMOR RESPON", "TANGGAL RESPON",
 ]
 
 # UN/EDIFACT 1001 document-type codes — public standard, used here as a
@@ -313,10 +405,27 @@ def build_aju_excel(declaration, items: list) -> Workbook:
         })
         ws.append([krow.get(col) for col in KEMASAN_COLUMNS])
 
-    # Remaining sheets (KONTAINER, KOMPONENBIAYA, etc.) were already created
-    # above and are left header-row-only — that matches what an out-of-the-
-    # box PIB submission looks like when those sections genuinely don't
-    # apply (no bonded-zone goods, no excise, no LCL container info, etc.).
+    # Remaining sheets genuinely don't apply to a standard, non-bonded
+    # import declaration (no bonded-zone goods, no excise, no LCL container
+    # info, etc.) — write the header row only so the workbook structure
+    # matches the official template, with no data rows underneath.
+    for sheet_name, columns in (
+        ("KONTAINER", KONTAINER_COLUMNS),
+        ("KOMPONENBIAYA", KOMPONENBIAYA_COLUMNS),
+        ("BARANGTARIF", BARANGTARIF_COLUMNS),
+        ("BARANGDOKUMEN", BARANGDOKUMEN_COLUMNS),
+        ("BARANGENTITAS", BARANGENTITAS_COLUMNS),
+        ("BARANGSPEKKHUSUS", BARANGSPEKKHUSUS_COLUMNS),
+        ("BARANGVD", BARANGVD_COLUMNS),
+        ("BAHANBAKU", BAHANBAKU_COLUMNS),
+        ("BAHANBAKUTARIF", BAHANBAKUTARIF_COLUMNS),
+        ("BAHANBAKUDOKUMEN", BAHANBAKUDOKUMEN_COLUMNS),
+        ("PUNGUTAN", PUNGUTAN_COLUMNS),
+        ("JAMINAN", JAMINAN_COLUMNS),
+        ("BANKDEVISA", BANKDEVISA_COLUMNS),
+        ("RESPON", RESPON_COLUMNS),
+    ):
+        wb[sheet_name].append(columns)
 
     # VERSI sheet always carries the template version we're targeting.
     ws = wb["VERSI"]
