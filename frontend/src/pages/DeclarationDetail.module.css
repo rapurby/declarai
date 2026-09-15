@@ -56,7 +56,7 @@
 .excelToggleBtnActive { background: var(--success-dim); color: var(--success); border-color: transparent; }
 .excelToggleBtnActive:hover { background: rgba(13,159,110,0.18); }
 
-.fieldsGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px 24px; }
+.fieldsGrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 24px; }
 
 /* Score panel */
 .scorePanel { display: flex; flex-direction: column; align-items: center; text-align: center; border-left: 1px solid var(--border-light); padding-left: 28px; }
@@ -205,6 +205,12 @@
 .xlsMuted { color: var(--text-muted); }
 .xlsCellRel { position: relative; }
 .xlsFieldCell { position: relative; padding-right: 18px; }
+
+.xlsEditable { cursor: pointer; border-radius: 5px; padding: 2px 5px; margin: -2px -5px; transition: background 0.12s ease; }
+.xlsEditable:hover { background: var(--det-primary-soft); }
+.xlsCellInput { width: 100%; min-width: 70px; padding: 4px 7px; border: 1.5px solid var(--det-primary); border-radius: 6px; font-size: 12.5px; font-family: inherit; background: var(--card); color: var(--text-primary); box-sizing: border-box; }
+.xlsCellInput:focus { outline: none; }
+.xlsReadonly { color: var(--text-muted); }
 
 .confDot { position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; border-radius: 50%; }
 .confDot_hi { background: var(--success); opacity: 0.55; }
