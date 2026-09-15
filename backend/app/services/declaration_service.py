@@ -227,7 +227,11 @@ async def submit_declaration(declaration_id: str, db: AsyncSession) -> Declarati
     # sebagai base64 di dalam payload H2H yang sama (satu submit, satu
     # request). GANTI logic ini kalau CDP kasih konfirmasi format
     # attachment yang sebenarnya (bisa jadi multipart, bukan base64-in-JSON).
-    wb = build_aju_excel(decl, decl.items)
+    # decl.line_items (JSON) reflects operator corrections; decl.items (the
+    # relational table) does not get updated by PATCH /declarations/{id} and
+    # goes stale the moment a line item is corrected — same fallback as
+    # export_aju_excel in app/api/routes/declaration.py.
+    wb = build_aju_excel(decl, decl.line_items or decl.items)
     buf = BytesIO()
     wb.save(buf)
     excel_b64 = base64.b64encode(buf.getvalue()).decode("ascii")

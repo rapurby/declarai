@@ -78,7 +78,11 @@ async def export_aju_excel(
     if current_user.role == "operator" and str(decl.operator_id) != str(current_user.id):
         raise HTTPException(status_code=403, detail="Access denied")
 
-    wb = build_aju_excel(decl, decl.items)
+    # line_items (JSON) is what PATCH /declarations/{id} actually writes to
+    # (see update_declaration below) — decl.items is the older relational
+    # table and goes stale the moment an operator corrects a line item, so
+    # it's only a fallback for declarations that predate the JSON column.
+    wb = build_aju_excel(decl, decl.line_items or decl.items)
     buf = BytesIO()
     wb.save(buf)
     buf.seek(0)
