@@ -7,6 +7,34 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
+// Railway spins the backend container down when it's idle. The first request
+// after that hits a container still booting (RapidOCR model load takes a
+// while), so it fails at the network layer before the app can answer —
+// which the browser then reports as a CORS error, since a response that
+// never arrived carries no Access-Control-Allow-Origin header.
+// Retrying transparently turns that first-click failure into a slightly
+// slower first click instead of a visible error.
+const MAX_RETRIES = 2
+const RETRY_DELAY_MS = 2500
+
+// Only retry when the server never answered (cold start, dropped connection)
+// or answered with a gateway-level error. A real 4xx/5xx from the app itself
+// is a genuine result and must surface to the caller unchanged.
+const isColdStartFailure = (err) => {
+  if (err.response) return [502, 503, 504].includes(err.response.status)
+  return err.code === 'ECONNABORTED' || err.code === 'ERR_NETWORK' || !err.status
+}
+
+// Never retry anything that changes state — a POST that actually reached the
+// server and timed out on the way back would otherwise run twice.
+const isRetryableMethod = (cfg) => {
+  const method = (cfg?.method || 'get').toLowerCase()
+  if (['get', 'head', 'options'].includes(method)) return true
+  return cfg?.url?.includes('/auth/login')  // login is safe to repeat
+}
+
+const sleep = (ms) => new Promise(r => setTimeout(r, ms))
+
 api.interceptors.request.use(cfg => {
   const token = localStorage.getItem('declarai_token')
   if (token) cfg.headers.Authorization = `Bearer ${token}`
@@ -15,12 +43,24 @@ api.interceptors.request.use(cfg => {
 
 api.interceptors.response.use(
   res => res,
-  err => {
+  async err => {
     if (err.response?.status === 401) {
       localStorage.removeItem('declarai_user')
       localStorage.removeItem('declarai_token')
       window.location.href = '/login'
+      return Promise.reject(err)
     }
+
+    const cfg = err.config
+    if (cfg && isColdStartFailure(err) && isRetryableMethod(cfg)) {
+      cfg._retryCount = cfg._retryCount || 0
+      if (cfg._retryCount < MAX_RETRIES) {
+        cfg._retryCount += 1
+        await sleep(RETRY_DELAY_MS * cfg._retryCount)  // 2.5s, then 5s
+        return api(cfg)
+      }
+    }
+
     return Promise.reject(err)
   }
 )
