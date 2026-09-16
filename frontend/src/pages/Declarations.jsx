@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, Trash2, ChevronRight, FileText, Upload, ChevronLeft } from 'lucide-react'
+import { Search, Trash2, ChevronRight, FileText, Upload } from 'lucide-react'
 import { useDeclarations } from '../hooks/useDeclarations.js'
 import { declarationAPI } from '../services/api.js'
 import { getUser, hasPermission } from '../utils/auth.js'
@@ -49,12 +49,31 @@ const FILTER_OPTIONS = [
   { value: 'submitted',  label: 'Submitted / Done', tab: 'Submitted' },
 ]
 
-const PAGE_SIZE = 15
+// Which board column a raw DB status belongs to — same grouping as
+// STATUS_GROUPS above, just inverted so we can bucket a declaration in O(1).
+const COLUMN_FOR_STATUS = {
+  uploaded:   'processing',
+  processing: 'processing',
+  extracted:  'processing',
+  flagged:    'review',
+  validated:  'ready',
+  submitted:  'submitted',
+  accepted:   'submitted',
+  rejected:   'submitted',
+}
+
+// Left-to-right column order for the board view — mirrors the pipeline a
+// declaration moves through, same order as the filter tabs above.
+const BOARD_COLUMNS = [
+  { key: 'processing', title: 'Processing',   variant: 'processing' },
+  { key: 'review',     title: 'Needs Review', variant: 'review' },
+  { key: 'ready',      title: 'Ready',        variant: 'ready' },
+  { key: 'submitted',  title: 'Submitted',    variant: 'submitted' },
+]
 
 export default function Declarations() {
   const [search, setSearch]           = useState('')
   const [statusFilter, setStatusFilter] = useState('')
-  const [page, setPage]               = useState(1)
   // Fetch all declarations — filter client-side with grouped statuses
   const { data, loading, refetch }    = useDeclarations({})
   const user = getUser()
@@ -72,12 +91,12 @@ export default function Declarations() {
     return true
   })
 
-  // Purely presentational pagination over the already-fetched, already-filtered
-  // list — no extra network calls, no change to useDeclarations/API params.
-  useEffect(() => { setPage(1) }, [search, statusFilter])
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const safePage = Math.min(page, pageCount)
-  const pageItems = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+  // Bucket the already-filtered list into board columns, preserving the
+  // same order the flat list used to render in within each column.
+  const columns = BOARD_COLUMNS.map(col => ({
+    ...col,
+    items: filtered.filter(d => COLUMN_FOR_STATUS[d.status] === col.key),
+  }))
 
   const handleDelete = async (id, e) => {
     e.preventDefault()
@@ -88,8 +107,6 @@ export default function Declarations() {
       refetch()
     } catch { toast.error('Failed to delete') }
   }
-
-  const gridCols = user?.role !== 'operator' ? '1.8fr 1fr 1.7fr 1.2fr 1.3fr 1fr 0.7fr 80px' : undefined
 
   return (
     <div className={styles.page}>
@@ -132,50 +149,46 @@ export default function Declarations() {
             )}
           </div>
         ) : (
-          <div className={styles.tableCard}>
-            <div className={styles.tableHead} style={{ gridTemplateColumns: gridCols }}>
-              <span>File</span><span>HS Code</span><span>Consignee</span>
-              <span>Value</span>{user?.role !== 'operator' && <span>Uploaded By</span>}<span>Status</span><span>Time</span><span></span>
-            </div>
-            {pageItems.map(d => (
-              <Link to={`/declarations/${d.id}`} key={d.id} className={styles.row}
-                style={{ gridTemplateColumns: gridCols }}>
-                <span className={styles.filename}>{d.filename}</span>
-                <span className={styles.mono}>{d.hs_code || '—'}</span>
-                <span className={styles.truncate}>{d.consignee || '—'}</span>
-                <span className={styles.mono}>{d.currency} {d.declared_value?.toLocaleString() || '—'}</span>
-                {user?.role !== 'operator' && <span className={styles.truncate}>{d.operator_name || '—'}</span>}
-                <span>
-                  <span className={styles.statusBadge + ' ' + styles['status_' + (STATUS_VARIANT[d.status] || 'processing')]}>
-                    {STATUS_LABEL[d.status] || d.status}
-                  </span>
-                </span>
-                <span className={styles.time}>{d.processing_time_ms ? `${(d.processing_time_ms/1000).toFixed(1)}s` : '—'}</span>
-                <span className={styles.actions}>
-                  {canDelete && (
-                    <button className={styles.iconBtn} onClick={e => handleDelete(d.id, e)} title="Delete">
-                      <Trash2 size={13} />
-                    </button>
-                  )}
-                  <ChevronRight size={14} className={styles.chevron} />
-                </span>
-              </Link>
-            ))}
-
-            <div className={styles.pagination}>
-              <span className={styles.paginationInfo}>
-                Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} of {filtered.length}
-              </span>
-              {pageCount > 1 && (
-                <div className={styles.paginationControls}>
-                  <button className={styles.pageBtn} disabled={safePage === 1}
-                    onClick={() => setPage(p => Math.max(1, p - 1))}><ChevronLeft size={14}/></button>
-                  <span className={styles.pageIndicator}>{safePage} / {pageCount}</span>
-                  <button className={styles.pageBtn} disabled={safePage === pageCount}
-                    onClick={() => setPage(p => Math.min(pageCount, p + 1))}><ChevronRight size={14}/></button>
+          <div className={styles.board}>
+            {columns.map(col => (
+              <div className={styles.column} key={col.key}>
+                <div className={styles.columnHead}>
+                  <span className={styles.columnDot + ' ' + styles['dot_' + col.variant]} />
+                  <span className={styles.columnTitle}>{col.title}</span>
+                  <span className={styles.columnCount}>{col.items.length}</span>
                 </div>
-              )}
-            </div>
+
+                <div className={styles.columnBody}>
+                  {col.items.length === 0 ? (
+                    <div className={styles.columnEmpty}>No declarations</div>
+                  ) : col.items.map(d => (
+                    <Link to={`/declarations/${d.id}`} key={d.id} className={styles.card}>
+                      <span className={styles.filename}>{d.filename}</span>
+                      <span className={styles.cardRow}><span>HS Code</span><span className={styles.mono}>{d.hs_code || '—'}</span></span>
+                      <span className={styles.cardRow}><span>Value</span><span className={styles.mono}>{d.currency} {d.declared_value?.toLocaleString() || '—'}</span></span>
+                      <span className={styles.truncate}>{d.consignee || '—'}</span>
+                      {user?.role !== 'operator' && (
+                        <span className={styles.cardUploader}>{d.operator_name || '—'}</span>
+                      )}
+                      <div className={styles.cardFoot}>
+                        <span className={styles.statusBadge + ' ' + styles['status_' + (STATUS_VARIANT[d.status] || 'processing')]}>
+                          {STATUS_LABEL[d.status] || d.status}
+                        </span>
+                        <span className={styles.time}>{d.processing_time_ms ? `${(d.processing_time_ms/1000).toFixed(1)}s` : '—'}</span>
+                        <span className={styles.actions}>
+                          {canDelete && (
+                            <button className={styles.iconBtn} onClick={e => handleDelete(d.id, e)} title="Delete">
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                          <ChevronRight size={13} className={styles.chevron} />
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
