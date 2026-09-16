@@ -71,32 +71,55 @@
 }
 .uploadLink:hover { background: #15619f; transform: translateY(-1px); color: white; }
 
-/* Table card */
-.tableCard {
-  background: var(--card); border-radius: 20px; overflow: hidden; box-shadow: var(--decl-shadow);
+/* Board — status columns laid out side by side, Jira-style */
+.board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
   animation: fadeInUp 0.4s cubic-bezier(0.16,1,0.3,1) both;
 }
-.tableHead {
-  display: grid; grid-template-columns: 2fr 1.2fr 2fr 1.5fr 1.2fr 0.8fr 80px;
-  padding: 12px 22px; background: var(--bg-elevated);
-  border-bottom: 1px solid var(--border-light);
-  font-size: 10.5px; font-weight: 700; color: var(--text-muted);
-  text-transform: uppercase; letter-spacing: 0.06em;
-}
-.row {
-  display: grid; grid-template-columns: 2fr 1.2fr 2fr 1.5fr 1.2fr 0.8fr 80px;
-  padding: 13px 22px; border-bottom: 1px solid var(--border-light);
-  align-items: center; text-decoration: none; color: var(--text-primary);
-  transition: background 0.18s ease;
-}
-.row:last-of-type { border-bottom: none; }
-.row:hover { background: var(--decl-primary-soft); }
-.row:hover .filename { transform: translateX(4px); }
 
-.filename { font-size: 13.5px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: transform 0.2s cubic-bezier(0.16,1,0.3,1); display: inline-block; max-width: 100%; }
+.column { display: flex; flex-direction: column; min-width: 0; }
+.columnHead { display: flex; align-items: center; gap: 8px; padding: 2px 4px 12px; }
+.columnDot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dot_processing { background: var(--info); }
+.dot_review      { background: var(--warning); }
+.dot_ready        { background: var(--success); }
+.dot_submitted    { background: var(--decl-primary); }
+.columnTitle { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+.columnCount {
+  font-size: 11px; font-weight: 700; color: var(--text-muted);
+  background: var(--bg-elevated); padding: 1px 8px; border-radius: 999px;
+}
+
+.columnBody { display: flex; flex-direction: column; gap: 10px; min-height: 40px; }
+.columnEmpty {
+  border: 1.5px dashed var(--border-light); border-radius: 14px;
+  padding: 22px 12px; text-align: center; font-size: 12px; color: var(--text-muted);
+}
+
+/* Card — one declaration, still a full Link to its detail page */
+.card {
+  display: flex; flex-direction: column; gap: 6px;
+  background: var(--card); border-radius: 14px; padding: 14px 15px;
+  box-shadow: var(--decl-shadow); text-decoration: none; color: var(--text-primary);
+  transition: transform 0.15s ease, box-shadow 0.18s ease;
+}
+.card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(15,23,42,0.09); }
+.card:hover .filename { transform: translateX(2px); }
+
+.filename { font-size: 13.5px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: transform 0.2s cubic-bezier(0.16,1,0.3,1); display: inline-block; max-width: 100%; margin-bottom: 2px; }
+.cardRow  { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 11.5px; color: var(--text-muted); }
 .mono     { font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
-.truncate { font-size: 13px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.time     { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.truncate { font-size: 12.5px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cardUploader { font-size: 11.5px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.time     { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+.cardFoot {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin-top: 6px; padding-top: 9px; border-top: 1px solid var(--border-light);
+}
 
 /* Status badges — small, crisp pills; colour grouped by user-facing label */
 .statusBadge { display: inline-flex; align-items: center; padding: 4px 11px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.01em; white-space: nowrap; }
@@ -112,29 +135,19 @@
 .iconBtn:hover { background: var(--danger-dim); color: var(--danger); }
 .chevron  { color: var(--text-muted); }
 
-/* Pagination */
-.pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 22px; border-top: 1px solid var(--border-light); }
-.paginationInfo { font-size: 12px; color: var(--text-muted); }
-.paginationControls { display: flex; align-items: center; gap: 10px; }
-.pageIndicator { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
-.pageBtn {
-  width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--border);
-  background: var(--card); color: var(--text-secondary); display: flex; align-items: center; justify-content: center;
-  cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+@media (max-width: 1100px) {
+  .board { grid-template-columns: repeat(4, minmax(220px, 1fr)); overflow-x: auto; padding-bottom: 6px; }
 }
-.pageBtn:hover:not(:disabled) { background: var(--decl-primary-soft); border-color: var(--decl-primary); color: var(--decl-primary); }
-.pageBtn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-@media (max-width: 900px) {
+@media (max-width: 760px) {
   .search { width: 100%; }
   .headerTop { flex-direction: column; }
-  .row, .tableHead { grid-template-columns: 1.6fr 1fr 1fr 80px !important; }
-  .row span:nth-child(2), .row span:nth-child(4), .row span:nth-child(5),
-  .tableHead span:nth-child(2), .tableHead span:nth-child(4), .tableHead span:nth-child(5) { display: none; }
+  .board { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .empty, .tableCard { animation: none; }
-  .row:hover .filename { transform: none; }
+  .empty, .board { animation: none; }
+  .card:hover { transform: none; }
+  .card:hover .filename { transform: none; }
   .filterTab:hover { transform: none; }
 }
