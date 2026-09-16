@@ -137,14 +137,12 @@ export default function Declarations() {
 
         {loading ? (
           <div className={styles.loading}><div className={styles.spinner} /></div>
-        ) : filtered.length === 0 ? (
+        ) : data.length === 0 ? (
           <div className={styles.empty}>
             <div className={styles.emptyIconWrap}><FileText size={26} strokeWidth={1.75} className={styles.emptyIcon} /></div>
             <div className={styles.emptyTitle}>No declarations found</div>
-            <div className={styles.emptySub}>
-              {search || statusFilter ? 'Try adjusting your search or filter.' : 'Upload a CIPL document to get started.'}
-            </div>
-            {canUpload && !search && !statusFilter && (
+            <div className={styles.emptySub}>Upload a CIPL document to get started.</div>
+            {canUpload && (
               <Link to="/upload" className={styles.uploadLink}><Upload size={13} /> Upload Document</Link>
             )}
           </div>
