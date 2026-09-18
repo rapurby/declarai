@@ -237,6 +237,22 @@ export default function DeclarationDetail() {
     } catch { toast.error('Failed to save item') }
   }
 
+  // Lets an operator key in goods the extraction missed entirely — without
+  // this, a document where the AI found no line items is a dead end.
+  const handleAddItem = async () => {
+    const items = [...lineItems, {
+      no: lineItems.length + 1,
+      hs_code: '', description: '', quantity: null,
+      unit: '', unit_price: null, total_value: null,
+      country_of_origin: '', confidence: null,
+    }]
+    try {
+      await declarationAPI.update(id, { line_items: items })
+      await load()
+      toast.success('Baris barang ditambahkan')
+    } catch { toast.error('Gagal menambah baris') }
+  }
+
   const handleSaveItem = async (i) => {
     const items = [...lineItems]
     const draft = { ...itemEditData }
@@ -343,44 +359,46 @@ export default function DeclarationDetail() {
       seri: 1, kode: '1 (Importir)',
       nomor: decl.npwp_consignee || '—', nomorRaw: decl.npwp_consignee, nomorField: 'npwp_consignee',
       nama: decl.consignee || '—', namaRaw: decl.consignee, namaField: 'consignee',
-      negara: '—', negaraField: null,
+      // CDP's importer is always Indonesian — a fixed value, like KODE KANTOR.
+      negara: 'ID', negaraField: null,
     },
     {
       seri: 2, kode: '9 (Shipper)',
-      nomor: '—', nomorField: null,
+      nomor: decl.shipper_identity || '—', nomorRaw: decl.shipper_identity, nomorField: 'shipper_identity',
       nama: decl.shipper || '—', namaRaw: decl.shipper, namaField: 'shipper',
       negara: decl.country_of_origin || '—', negaraRaw: decl.country_of_origin, negaraField: 'country_of_origin',
       negaraConf: confDot(ext.country_of_origin?.confidence),
     },
   ]
 
-  const dokumenRows = []
-  if (decl.invoice_number) dokumenRows.push({
-    seri: dokumenRows.length + 1, kode: '380 (Invoice)',
-    nomor: decl.invoice_number, nomorField: 'invoice_number',
-    tanggal: decl.invoice_date || '—', tanggalRaw: decl.invoice_date, tanggalField: 'invoice_date',
-  })
-  if (decl.bl_number) dokumenRows.push({
-    seri: dokumenRows.length + 1, kode: '705 (B/L)',
-    nomor: decl.bl_number, nomorField: 'bl_number',
-    tanggal: '—', tanggalField: null,
-  })
+  // Rows are always rendered, even when the extraction found nothing — an
+  // empty row with editable cells is what lets an operator key in a value
+  // the AI missed. Hiding the row (the old behaviour) made those sheets
+  // look read-only and left no way to correct a miss.
+  const dokumenRows = [
+    {
+      seri: 1, kode: '380 (Invoice)',
+      nomor: decl.invoice_number || '—', nomorRaw: decl.invoice_number, nomorField: 'invoice_number',
+      tanggal: decl.invoice_date || '—', tanggalRaw: decl.invoice_date, tanggalField: 'invoice_date',
+    },
+    {
+      seri: 2, kode: '705 (B/L)',
+      nomor: decl.bl_number || '—', nomorRaw: decl.bl_number, nomorField: 'bl_number',
+      tanggal: '—', tanggalField: null,
+    },
+  ]
 
-  const pengangkutRows = decl.vessel_name
-    ? [{
-        seri: 1, kode: '1 (Laut)',
-        nama: decl.vessel_name, namaField: 'vessel_name',
-        nomor: decl.voyage_number || '—', nomorRaw: decl.voyage_number, nomorField: 'voyage_number',
-      }]
-    : []
+  const pengangkutRows = [{
+    seri: 1, kode: '1 (Laut)',
+    nama: decl.vessel_name || '—', namaRaw: decl.vessel_name, namaField: 'vessel_name',
+    nomor: decl.voyage_number || '—', nomorRaw: decl.voyage_number, nomorField: 'voyage_number',
+  }]
 
-  const kemasanRows = decl.package_quantity
-    ? [{
-        seri: 1,
-        kode: decl.package_type || '—', kodeRaw: decl.package_type, kodeField: 'package_type',
-        jumlah: decl.package_quantity, jumlahField: 'package_quantity',
-      }]
-    : []
+  const kemasanRows = [{
+    seri: 1,
+    kode: decl.package_type || '—', kodeRaw: decl.package_type, kodeField: 'package_type',
+    jumlah: decl.package_quantity ?? '—', jumlahRaw: decl.package_quantity, jumlahField: 'package_quantity',
+  }]
 
   const barangRows = lineItems.map((item, i) => ({
     i,
@@ -864,11 +882,22 @@ export default function DeclarationDetail() {
                         </tbody>
                       </table>
                     </div>
-                  ) : <div className={styles.empty}>No items extracted from this document.</div>
+                  ) : (
+                    <div className={styles.empty}>
+                      AI tidak menemukan satu pun barang di dokumen ini.
+                      {isCellEditable && ' Tambahkan baris untuk mengisinya manual.'}
+                    </div>
+                  )
+                )}
+
+                {activeSheet === 'BARANG' && isCellEditable && (
+                  <button className={styles.addItemBtn} onClick={handleAddItem}>
+                    + Tambah baris barang
+                  </button>
                 )}
 
                 <div className={styles.excelFooter}>
-                  <span>🟢 dot = confidence tinggi &nbsp; 🟠 = perlu dicek &nbsp; 🔴 = rendah/perlu mapping kode</span>
+                  <span>🟢 dot = confidence tinggi &nbsp; 🟠 = perlu dicek &nbsp; 🔴 = rendah/perlu mapping kode &nbsp; — = kosong, klik untuk isi manual</span>
                   <span><b>{val.score ?? 0}%</b> skor kesiapan Excel</span>
                 </div>
               </div>

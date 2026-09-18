@@ -134,6 +134,7 @@ async def run_pipeline_bg(
             decl.consignee         = _gv(header, "consignee")
             decl.npwp_consignee    = _gv(header, "npwp_consignee")
             decl.shipper           = _gv(header, "shipper")
+            decl.shipper_identity  = _gv(header, "shipper_identity")
             decl.invoice_number    = _gv(header, "invoice_number")
             decl.invoice_date      = _gv(header, "invoice_date")
             decl.currency          = _gv(header, "currency")

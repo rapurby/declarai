@@ -48,6 +48,7 @@ class DeclarationResponse(BaseModel):
     gross_weight: Optional[float]
     net_weight: Optional[float]
     shipper: Optional[str]
+    shipper_identity: Optional[str]
     bl_number: Optional[str]
     invoice_number: Optional[str]
     invoice_date: Optional[str]
@@ -116,6 +117,7 @@ class DeclarationUpdate(BaseModel):
     gross_weight: Optional[float] = None
     net_weight: Optional[float] = None
     shipper: Optional[str] = None
+    shipper_identity: Optional[str] = None
     bl_number: Optional[str] = None
     invoice_number: Optional[str] = None
     invoice_date: Optional[str] = None

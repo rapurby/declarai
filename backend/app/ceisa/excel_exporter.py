@@ -320,6 +320,39 @@ def _mark_cells(ws, row_idx: int, columns: list, marks: dict):
             )
 
 
+def _finalize_layout(wb: Workbook):
+    """
+    Presentation pass, matching how the CDP-provided template renders.
+
+    Without this the file is structurally correct but unreadable: 107
+    unsized columns at Excel's 8-character default means headers like
+    "KODE PELABUHAN BONGKAR" are cut off and numbers show as ####.
+    The official template ships explicit widths and a bold 12pt header
+    row, so we reproduce that here. Styling only — no cell values are
+    touched, so nothing a CEISA parser reads is affected.
+    """
+    for ws in wb.worksheets:
+        for cell in ws[1]:
+            if cell.value is not None:
+                cell.font = Font(bold=True, size=12)
+
+        for col_cells in ws.columns:
+            longest = max(
+                (len(str(c.value)) for c in col_cells if c.value is not None),
+                default=0,
+            )
+            if longest:
+                # Floor keeps short code columns clickable, ceiling stops a
+                # long goods description from swallowing the screen.
+                width = min(max(longest + 2, 10), 45)
+                ws.column_dimensions[col_cells[0].column_letter].width = width
+
+        # Keep the column names visible while scrolling sideways through
+        # a 107-column sheet.
+        if ws.max_row > 1:
+            ws.freeze_panes = "A2"
+
+
 def build_aju_excel(declaration, items: list, highlight: bool = True) -> Workbook:
     """
     declaration: Declaration ORM object (or any object exposing the same
@@ -405,6 +438,7 @@ def build_aju_excel(declaration, items: list, highlight: bool = True) -> Workboo
         "KODE ENTITAS": "1",  # 1 = Importir (konvensi CEISA)
         "NAMA ENTITAS": g(declaration, "consignee"),
         "NOMOR IDENTITAS": g(declaration, "npwp_consignee"),
+        "KODE NEGARA": "ID",  # CDP's importer is always Indonesian
     })
     ws.append([erow.get(col) for col in ENTITAS_COLUMNS])
     erow2 = {col: None for col in ENTITAS_COLUMNS}
@@ -413,6 +447,7 @@ def build_aju_excel(declaration, items: list, highlight: bool = True) -> Workboo
         "SERI": 2,
         "KODE ENTITAS": "9",  # 9 = Penjual/Shipper (konvensi CEISA)
         "NAMA ENTITAS": g(declaration, "shipper"),
+        "NOMOR IDENTITAS": g(declaration, "shipper_identity"),
         "KODE NEGARA": g(declaration, "country_of_origin"),              # NEEDS CODE MAPPING (ISO 3166 expected)
     })
     ws.append([erow2.get(col) for col in ENTITAS_COLUMNS])
@@ -560,5 +595,7 @@ def build_aju_excel(declaration, items: list, highlight: bool = True) -> Workboo
     ws = wb["VERSI"]
     ws.append(["VERSI"])
     ws.append(["1.3"])
+
+    _finalize_layout(wb)
 
     return wb

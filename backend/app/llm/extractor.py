@@ -20,6 +20,7 @@ Return this exact structure:
     "consignee":        {{"value": null, "confidence": 0.0}},
     "npwp_consignee":   {{"value": null, "confidence": 0.0}},
     "shipper":          {{"value": null, "confidence": 0.0}},
+    "shipper_identity": {{"value": null, "confidence": 0.0}},
     "invoice_number":   {{"value": null, "confidence": 0.0}},
     "invoice_date":     {{"value": null, "confidence": 0.0}},
     "currency":         {{"value": null, "confidence": 0.0}},
@@ -74,6 +75,7 @@ Rules:
 - insight.confidence_level: "high" ≥0.85, "medium" ≥0.60, "low" <0.60
 - insight.issues: only real problems — [{{"field":"...", "type":"missing|low_confidence|arithmetic", "message":"brief"}}]
 - insight.suggested_action: "auto_approve" | "needs_review" | "cannot_submit"
+- shipper_identity: the exporter's business/tax registration number, e.g. "사업자등록번호", "Business Registration No", "Tax ID", "VAT No". Not the importer's NPWP
 - insurance_value: look for "insurance", "premi asuransi", "보험료" etc. If genuinely absent from the document but fob_value/freight_value/cif_value are all present, compute it as cif_value - fob_value - freight_value instead of leaving it null
 - Mandatory: hs_code (per item), consignee, declared_value, currency, description
 - Multilingual: 数量=quantity, 金额=value, 重量=weight, 品名=description, 发票=invoice"""

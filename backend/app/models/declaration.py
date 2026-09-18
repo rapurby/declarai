@@ -108,6 +108,12 @@ class Declaration(Base):
 
     shipper = Column(String, nullable=True)
 
+    # Exporter's registration/tax number as printed on the invoice (e.g. the
+    # Korean 사업자등록번호). CEISA asks for it in ENTITAS.NOMOR IDENTITAS;
+    # before this column there was nowhere to put it, so the cell was stuck
+    # read-only even when the number was visible in the document.
+    shipper_identity = Column(String, nullable=True)
+
     bl_number = Column(String, nullable=True)
 
     invoice_number = Column(String, nullable=True)

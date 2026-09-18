@@ -14,6 +14,9 @@ HEADER_MANDATORY = [
 ITEM_MANDATORY = ["hs_code", "description", "quantity", "unit"]
 
 CONFIDENCE_THRESHOLD = 0.75
+# Below this the UI paints the score red — and now it also blocks submission,
+# so "red" and "cannot submit" mean the same thing.
+SUBMIT_MIN_SCORE = 60
 ARITHMETIC_TOLERANCE = 0.02  # 2%
 VALID_CURRENCIES = {"USD", "EUR", "JPY", "CNY", "KRW", "SGD", "IDR", "GBP", "AUD"}
 VALID_UNITS = {"PCS", "KG", "CTN", "SET", "BOX", "BAG", "M", "M2", "L", "TON", "UNIT", "PAIR", "ROLL"}
@@ -201,12 +204,50 @@ def validate(extracted: dict, line_items: list = None) -> dict:
     flagged = list(set(flagged))
     score = max(0, 100 - len(errors) * 10 - len(warnings) * 5)
 
+    # ==========================================================
+    # PLAUSIBILITY CAPS
+    # ==========================================================
+    # Everything above only asks "is each field filled and internally
+    # consistent?" — never "is this actually a CIPL?". A document that
+    # isn't one at all (a reference letter, a random PDF) still gets its
+    # fields hallucinated by the LLM, passes most checks, and lands in the
+    # 60s. These ceilings keep such a document out of submittable range.
+    cap_reasons = []
+
+    if not line_items:
+        # A goods declaration with no goods isn't a near-miss, it's the
+        # wrong document.
+        score = min(score, 25)
+        cap_reasons.append("no line items detected")
+
+    missing_mandatory = sum(
+        1 for f in HEADER_MANDATORY if not (extracted.get(f) or {}).get("value")
+    )
+    if missing_mandatory >= 2:
+        score = min(score, 40)
+        cap_reasons.append(f"{missing_mandatory} mandatory header fields missing")
+
+    mandatory_conf = [
+        c for c in ((extracted.get(f) or {}).get("confidence") for f in HEADER_MANDATORY)
+        if c is not None
+    ]
+    if mandatory_conf and (sum(mandatory_conf) / len(mandatory_conf)) < 0.50:
+        # The model filled the fields but had no real basis for any of them.
+        score = min(score, 45)
+        cap_reasons.append("average confidence on mandatory fields below 50%")
+
+    # A red score now genuinely means "cannot be submitted", instead of the
+    # gate silently depending on error count while the UI showed a score.
+    submit_ready = len(errors) == 0 and score >= SUBMIT_MIN_SCORE
+
     result = {
-        "valid": len(errors) == 0,
+        "valid": submit_ready,
         "errors": errors,
         "warnings": warnings,
         "flagged_fields": flagged,
         "score": score,
+        "score_threshold": SUBMIT_MIN_SCORE,
+        "cap_reasons": cap_reasons,
         "item_count": len(line_items),
         "cdp_fixed_values": CDP_FIXED,
     }

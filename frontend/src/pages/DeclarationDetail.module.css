@@ -219,6 +219,20 @@
 
 .fvSheet { max-width: 640px; }
 
+.addItemBtn {
+  margin-top: 12px;
+  padding: 8px 16px;
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--det-primary);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.addItemBtn:hover { background: var(--det-primary-soft); border-color: var(--det-primary); }
+
 .excelFooter { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; font-size: 11.5px; color: var(--text-muted); gap: 12px; flex-wrap: wrap; }
 .excelFooter b { color: var(--text-secondary); }
 
