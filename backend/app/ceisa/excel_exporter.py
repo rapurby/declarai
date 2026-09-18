@@ -25,7 +25,22 @@ conventions as a starting guess) and MUST be spot-checked before real
 submission. They're marked with `# NEEDS CODE MAPPING` below.
 """
 from openpyxl import Workbook
+from openpyxl.styles import PatternFill, Font
+from openpyxl.comments import Comment
 from datetime import datetime
+
+# Review highlighting — mirrors Excel's own built-in "Bad" / "Neutral"
+# conditional-format colours so the file looks native when CDP opens it.
+# Only applied to cells DeclarAI actually tries to populate; the ~90 HEADER
+# columns that are blank by design stay unmarked, otherwise the whole row
+# would read as an error.
+FILL_BAD = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+FONT_BAD = Font(color="9C0006")
+FILL_WARN = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
+FONT_WARN = Font(color="9C6500")
+
+CONF_HIGH = 0.85
+CONF_LOW = 0.60
 
 # All 20 sheets from the official template, in original order.
 # Sheets not explicitly populated below are still created (header-only)
@@ -251,11 +266,69 @@ def _aju_placeholder(declaration_id: str) -> str:
     return f"DRAFT-{str(declaration_id)[:8].upper()}"
 
 
-def build_aju_excel(declaration, items: list) -> Workbook:
+def _attr(obj, field, default=None):
+    return getattr(obj, field, default) if not isinstance(obj, dict) else obj.get(field, default)
+
+
+def _header_confidence(declaration, field):
+    """
+    Per-field extraction confidence as reported by the LLM, stored in
+    declaration.llm_extracted["header"][field]["confidence"].
+    Returns None when the field wasn't part of the extraction at all.
+    """
+    extracted = _attr(declaration, "llm_extracted") or {}
+    if not isinstance(extracted, dict):
+        return None
+    header = extracted.get("header") or {}
+    entry = header.get(field)
+    return entry.get("confidence") if isinstance(entry, dict) else None
+
+
+def _mark_cells(ws, row_idx: int, columns: list, marks: dict):
+    """
+    Colour the review-relevant cells of one written row.
+
+    marks maps an Excel column name to the confidence behind it (or None
+    when the value isn't LLM-extracted). A cell is flagged when it's empty
+    or when confidence is below the review threshold; everything else is
+    left clean so the highlights actually mean something.
+    """
+    for col_name, confidence in marks.items():
+        try:
+            col_idx = columns.index(col_name) + 1
+        except ValueError:
+            continue
+        cell = ws.cell(row=row_idx, column=col_idx)
+
+        if cell.value in (None, ""):
+            cell.fill, cell.font = FILL_BAD, FONT_BAD
+            cell.comment = Comment(
+                "Kosong — tidak ditemukan di dokumen sumber. Wajib diisi manual sebelum submit.",
+                "DeclarAI",
+            )
+        elif confidence is not None and confidence < CONF_LOW:
+            cell.fill, cell.font = FILL_BAD, FONT_BAD
+            cell.comment = Comment(
+                f"Confidence rendah ({confidence:.0%}) — wajib diverifikasi ke dokumen asli.",
+                "DeclarAI",
+            )
+        elif confidence is not None and confidence < CONF_HIGH:
+            cell.fill, cell.font = FILL_WARN, FONT_WARN
+            cell.comment = Comment(
+                f"Confidence sedang ({confidence:.0%}) — sebaiknya dicek ulang.",
+                "DeclarAI",
+            )
+
+
+def build_aju_excel(declaration, items: list, highlight: bool = True) -> Workbook:
     """
     declaration: Declaration ORM object (or any object exposing the same
                  attributes — dict-like access also supported).
     items:       list of DeclarationItem ORM objects.
+    highlight:   colour empty / low-confidence cells and attach review notes.
+                 True for the copy a human downloads and checks; pass False
+                 for the copy attached to the H2H submission, so what CEISA
+                 receives carries data only, no DeclarAI review markup.
     Returns an openpyxl Workbook ready to be saved / streamed.
     """
     wb = Workbook()
@@ -306,6 +379,21 @@ def build_aju_excel(declaration, items: list) -> Workbook:
         "PACKAGE_TYPE_REF": None,
     })
     ws.append([row.get(col) for col in HEADER_COLUMNS])
+    if highlight:
+        # Only the columns we actually populate — the other ~90 are blank by
+        # design and flagging them would drown out the real problems.
+        _mark_cells(ws, 2, HEADER_COLUMNS, {
+            "KODE PELABUHAN MUAT": _header_confidence(declaration, "port_of_loading"),
+            "NOMOR BC11": _header_confidence(declaration, "bc11_number"),
+            "ASURANSI": _header_confidence(declaration, "insurance_value"),
+            "NILAI BARANG": _header_confidence(declaration, "declared_value"),
+            "FREIGHT": _header_confidence(declaration, "freight_value"),
+            "FOB": _header_confidence(declaration, "fob_value"),
+            "CIF": _header_confidence(declaration, "cif_value"),
+            "BRUTO": _header_confidence(declaration, "gross_weight"),
+            "NETTO": _header_confidence(declaration, "net_weight"),
+            "KODE VALUTA": _header_confidence(declaration, "currency"),
+        })
 
     # ---- ENTITAS (importer / consignee) ----
     ws = wb["ENTITAS"]
@@ -328,6 +416,15 @@ def build_aju_excel(declaration, items: list) -> Workbook:
         "KODE NEGARA": g(declaration, "country_of_origin"),              # NEEDS CODE MAPPING (ISO 3166 expected)
     })
     ws.append([erow2.get(col) for col in ENTITAS_COLUMNS])
+    if highlight:
+        _mark_cells(ws, 2, ENTITAS_COLUMNS, {
+            "NOMOR IDENTITAS": _header_confidence(declaration, "npwp_consignee"),
+            "NAMA ENTITAS": _header_confidence(declaration, "consignee"),
+        })
+        _mark_cells(ws, 3, ENTITAS_COLUMNS, {
+            "NAMA ENTITAS": _header_confidence(declaration, "shipper"),
+            "KODE NEGARA": _header_confidence(declaration, "country_of_origin"),
+        })
 
     # ---- BARANG (one row per line item) ----
     ws = wb["BARANG"]
@@ -347,6 +444,19 @@ def build_aju_excel(declaration, items: list) -> Workbook:
             "KODE NEGARA ASAL": g(item, "country_of_origin"),             # NEEDS CODE MAPPING
         })
         ws.append([brow.get(col) for col in BARANG_COLUMNS])
+        if highlight:
+            # One confidence score covers the whole extracted line item, so
+            # every field of that row carries the same weight.
+            item_conf = g(item, "confidence")
+            _mark_cells(ws, i + 1, BARANG_COLUMNS, {
+                "HS": item_conf,
+                "URAIAN": item_conf,
+                "KODE SATUAN": item_conf,
+                "JUMLAH SATUAN": item_conf,
+                "HARGA SATUAN": item_conf,
+                "NILAI BARANG": item_conf,
+                "KODE NEGARA ASAL": item_conf,
+            })
 
     # ---- DOKUMEN (invoice + B/L references) ----
     ws = wb["DOKUMEN"]
@@ -364,6 +474,11 @@ def build_aju_excel(declaration, items: list) -> Workbook:
             "TANGGAL DOKUMEN": g(declaration, "invoice_date"),
         })
         ws.append([drow.get(col) for col in DOKUMEN_COLUMNS])
+        if highlight:
+            _mark_cells(ws, seri + 1, DOKUMEN_COLUMNS, {
+                "NOMOR DOKUMEN": _header_confidence(declaration, "invoice_number"),
+                "TANGGAL DOKUMEN": _header_confidence(declaration, "invoice_date"),
+            })
     bl_number = g(declaration, "bl_number")
     if bl_number:
         seri += 1
@@ -375,6 +490,10 @@ def build_aju_excel(declaration, items: list) -> Workbook:
             "NOMOR DOKUMEN": bl_number,
         })
         ws.append([drow.get(col) for col in DOKUMEN_COLUMNS])
+        if highlight:
+            _mark_cells(ws, seri + 1, DOKUMEN_COLUMNS, {
+                "NOMOR DOKUMEN": _header_confidence(declaration, "bl_number"),
+            })
 
     # ---- PENGANGKUT (vessel / voyage) ----
     ws = wb["PENGANGKUT"]
@@ -390,6 +509,11 @@ def build_aju_excel(declaration, items: list) -> Workbook:
             "NOMOR PENGANGKUT": g(declaration, "voyage_number"),
         })
         ws.append([prow.get(col) for col in PENGANGKUT_COLUMNS])
+        if highlight:
+            _mark_cells(ws, 2, PENGANGKUT_COLUMNS, {
+                "NAMA PENGANGKUT": _header_confidence(declaration, "vessel_name"),
+                "NOMOR PENGANGKUT": _header_confidence(declaration, "voyage_number"),
+            })
 
     # ---- KEMASAN (packages) ----
     ws = wb["KEMASAN"]
@@ -404,6 +528,11 @@ def build_aju_excel(declaration, items: list) -> Workbook:
             "JUMLAH KEMASAN": package_quantity,
         })
         ws.append([krow.get(col) for col in KEMASAN_COLUMNS])
+        if highlight:
+            _mark_cells(ws, 2, KEMASAN_COLUMNS, {
+                "KODE KEMASAN": _header_confidence(declaration, "package_type"),
+                "JUMLAH KEMASAN": _header_confidence(declaration, "package_quantity"),
+            })
 
     # Remaining sheets genuinely don't apply to a standard, non-bonded
     # import declaration (no bonded-zone goods, no excise, no LCL container

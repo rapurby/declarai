@@ -82,7 +82,10 @@ async def export_aju_excel(
     # (see update_declaration below) — decl.items is the older relational
     # table and goes stale the moment an operator corrects a line item, so
     # it's only a fallback for declarations that predate the JSON column.
-    wb = build_aju_excel(decl, decl.line_items or decl.items)
+    # highlight=True: this is the human review copy — empty and low-confidence
+    # cells are colour-coded with notes. The copy attached to the H2H
+    # submission is built with highlight=False (see declaration_service).
+    wb = build_aju_excel(decl, decl.line_items or decl.items, highlight=True)
     buf = BytesIO()
     wb.save(buf)
     buf.seek(0)

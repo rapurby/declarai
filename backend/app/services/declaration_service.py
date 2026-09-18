@@ -231,7 +231,10 @@ async def submit_declaration(declaration_id: str, db: AsyncSession) -> Declarati
     # relational table) does not get updated by PATCH /declarations/{id} and
     # goes stale the moment a line item is corrected — same fallback as
     # export_aju_excel in app/api/routes/declaration.py.
-    wb = build_aju_excel(decl, decl.line_items or decl.items)
+    # highlight=False: what CEISA receives carries data only. The colour
+    # coding and review notes are DeclarAI's internal QA aid, meant for the
+    # copy a CDP operator downloads and checks — not for the official filing.
+    wb = build_aju_excel(decl, decl.line_items or decl.items, highlight=False)
     buf = BytesIO()
     wb.save(buf)
     excel_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
