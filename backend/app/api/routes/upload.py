@@ -65,11 +65,21 @@ async def upload_documents_batch(
     background_tasks: BackgroundTasks,
     files: List[UploadFile] = File(...),
     session_id: Optional[str] = Form(None),
+    # Parallel to `files`: doc_names[i] renames files[i]. Sent as repeated
+    # form fields, so an empty string means "keep the original filename"
+    # and the positions stay aligned even when only some files are renamed.
+    doc_names: Optional[List[str]] = Form(None),
     current_user: User = Depends(require_role("admin", "operator")),
     db: AsyncSession = Depends(get_db),
 ):
     if not files:
         raise HTTPException(status_code=400, detail="No files provided")
+
+    if doc_names and len(doc_names) != len(files):
+        raise HTTPException(
+            status_code=400,
+            detail=f"doc_names has {len(doc_names)} entries but {len(files)} files were uploaded",
+        )
 
     # Validate every file up front — reject the whole batch on the first
     # problem rather than partially creating declarations for a mixed batch.
@@ -85,18 +95,23 @@ async def upload_documents_batch(
         file_bytes_list.append(b)
 
     declarations = []
-    for f, file_bytes in zip(files, file_bytes_list):
+    for idx, (f, file_bytes) in enumerate(zip(files, file_bytes_list)):
+        # Same rule as the single-file endpoint: use the operator's custom
+        # name when they typed one, otherwise fall back to the filename.
+        custom = doc_names[idx].strip() if doc_names and doc_names[idx] else ""
+        display_name = custom or f.filename
+
         decl_id = uuid.uuid4()
         decl = Declaration(
             id=decl_id,
-            filename=f.filename,
+            filename=display_name,
             file_type=f.content_type,
             status=DeclarationStatus.PROCESSING,
             operator_id=current_user.id,
             session_id=session_id,
         )
         db.add(decl)
-        declarations.append((decl_id, f.filename, f.content_type, file_bytes))
+        declarations.append((decl_id, display_name, f.content_type, file_bytes))
 
     await db.commit()
 

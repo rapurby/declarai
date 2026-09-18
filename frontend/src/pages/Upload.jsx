@@ -22,6 +22,9 @@ function fileTypeMeta(file) {
 
 export default function Upload() {
   const [files, setFiles]                 = useState([])
+  // Positional custom names — docNames[i] belongs to files[i]. Empty string
+  // means "keep the original filename", matching what the backend expects.
+  const [docNames, setDocNames]           = useState([])
   const [uploading, setUploading]         = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [error, setError]                 = useState(null)
@@ -42,13 +45,23 @@ export default function Upload() {
   }
 
   const onDrop = useCallback(accepted => {
-    if (accepted.length) setFiles(prev => [...prev, ...accepted])
+    if (!accepted.length) return
+    setFiles(prev => [...prev, ...accepted])
+    setDocNames(prev => [...prev, ...accepted.map(() => '')])
   }, [])
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop, accept: { 'image/*': [], 'application/pdf': [] }, maxSize: 10 * 1024 * 1024, multiple: true,
   })
 
-  const removeFile = (index) => setFiles(prev => prev.filter((_, i) => i !== index))
+  // Both lists are positional, so they have to be spliced together —
+  // otherwise a rename would end up attached to the wrong file.
+  const removeFile = (index) => {
+    setFiles(prev => prev.filter((_, i) => i !== index))
+    setDocNames(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const renameFile = (index, value) =>
+    setDocNames(prev => prev.map((n, i) => (i === index ? value : n)))
 
   const handleUpload = async () => {
     if (files.length === 0) return
@@ -57,7 +70,7 @@ export default function Upload() {
     setUploadProgress(0)
 
     try {
-      const res = await declarationAPI.uploadBatch(files, pct => setUploadProgress(pct))
+      const res = await declarationAPI.uploadBatch(files, pct => setUploadProgress(pct), docNames)
       const count = res.data?.count ?? res.data?.declarations?.length ?? files.length
       toast.success(`${count} document${count === 1 ? '' : 's'} queued for processing`)
       navigate('/declarations')
@@ -166,7 +179,14 @@ export default function Upload() {
                   <div key={`${f.name}-${f.size}-${i}`} className={styles.fileListItem}>
                     <div className={styles.fileIconWrap}><Icon size={20} className={styles.fileIcon}/></div>
                     <div className={styles.fileMeta}>
-                      <div className={styles.fileName}>{f.name}</div>
+                      <input
+                        className={styles.fileNameInput}
+                        value={docNames[i] ?? ''}
+                        placeholder={f.name}
+                        disabled={uploading}
+                        onChange={e => renameFile(i, e.target.value)}
+                        title="Beri nama dokumen — kosongkan untuk memakai nama file asli"
+                      />
                       <div className={styles.fileSub}>{label} · {formatFileSize(f.size)}</div>
                     </div>
                     {uploading ? (

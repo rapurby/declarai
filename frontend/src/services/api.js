@@ -80,9 +80,13 @@ export const declarationAPI = {
     const token = localStorage.getItem('declarai_token')
     return `${BASE_URL}/api/v1/declarations/${id}/file?t=${encodeURIComponent(token)}`
   },
-  uploadBatch: (files, onProgress) => {
+  // docNames is positional: docNames[i] renames files[i]. Always send one
+  // entry per file (empty string = keep original name) so the backend can
+  // line the two lists up by index.
+  uploadBatch: (files, onProgress, docNames) => {
     const fd = new FormData()
     files.forEach(f => fd.append('files', f))
+    if (docNames?.length) files.forEach((_, i) => fd.append('doc_names', docNames[i] || ''))
     return api.post('/upload/batch', fd, {
       headers: { 'Content-Type': 'multipart/form-data' },
       onUploadProgress: e => onProgress?.(Math.round(e.loaded * 100 / e.total)),

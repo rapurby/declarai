@@ -87,6 +87,31 @@
 .fileName { font-size: 14.5px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fileSub  { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 
+/* Rename field — styled to read as the filename until it's focused, so the
+   row still scans as a file list rather than a form. */
+.fileNameInput {
+  width: 100%;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 3px 7px;
+  margin-left: -7px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.fileNameInput::placeholder { color: var(--text-primary); opacity: 0.75; font-weight: 600; }
+.fileNameInput:hover:not(:disabled) { background: var(--bg-elevated); }
+.fileNameInput:focus {
+  outline: none;
+  background: var(--card);
+  border-color: var(--primary);
+}
+.fileNameInput:focus::placeholder { opacity: 0.4; font-weight: 400; }
+.fileNameInput:disabled { background: transparent; cursor: default; }
+
 /* ---------- Multi-file selection list ---------- */
 .fileList { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
 .fileListItem { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
