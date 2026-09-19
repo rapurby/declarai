@@ -75,7 +75,26 @@ export default function Upload() {
       toast.success(`${count} document${count === 1 ? '' : 's'} queued for processing`)
       navigate('/declarations')
     } catch (e) {
-      const msg = e.response?.data?.detail || 'Upload failed'
+      // A bare "Upload failed" told nobody anything. FastAPI only sends a
+      // `detail` for errors it raises deliberately (wrong type, too large);
+      // an unhandled crash or a dropped connection arrives with nothing
+      // usable, so those cases need their own wording.
+      const status = e.response?.status
+      const detail = e.response?.data?.detail
+      let msg
+      if (detail) {
+        msg = detail
+      } else if (!e.response) {
+        msg = 'Tidak bisa menghubungi server. Backend mungkin sedang restart — coba lagi sebentar lagi.'
+      } else if (status === 413) {
+        msg = 'File terlalu besar. Maksimal 10MB per file.'
+      } else if (status === 401 || status === 403) {
+        msg = 'Sesi kamu tidak berlaku lagi atau peranmu tidak punya izin upload. Coba login ulang.'
+      } else if (status >= 500) {
+        msg = `Server gagal memproses upload (error ${status}). Ini bukan soal dokumenmu — laporkan ke tim teknis.`
+      } else {
+        msg = `Upload gagal (error ${status}).`
+      }
       toast.error(msg)
       setError(msg)
       setUploading(false)

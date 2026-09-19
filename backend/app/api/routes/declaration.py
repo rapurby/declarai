@@ -9,6 +9,7 @@ from app.models.declaration import Declaration, DeclarationStatus
 from app.models.audit import AuditLog
 from app.models.user import User
 from app.schemas.declaration import DeclarationResponse, DeclarationListItem, DeclarationUpdate
+from datetime import datetime
 from app.services.declaration_service import submit_declaration, get_dashboard_stats, log_audit
 from app.ceisa.excel_exporter import build_aju_excel
 from app.core.config import settings
@@ -62,6 +63,10 @@ async def get_declaration(
         raise HTTPException(status_code=404, detail="Declaration not found")
     if current_user.role == "operator" and str(decl.operator_id) != str(current_user.id):
         raise HTTPException(status_code=403, detail="Access denied")
+    # Tells the UI whether the original scan is still on disk, so the "View
+    # Document" button can be disabled up front instead of opening a tab that
+    # lands on an error page.
+    decl.file_available = bool(decl.file_path and os.path.exists(decl.file_path))
     return decl
 
 @router.get("/declarations/{declaration_id}/export-aju-excel",
@@ -123,8 +128,18 @@ async def get_declaration_file(
         raise HTTPException(status_code=404, detail="Declaration not found")
     if user.role == "operator" and str(decl.operator_id) != str(user.id):
         raise HTTPException(status_code=403, detail="Access denied")
-    if not decl.file_path or not os.path.exists(decl.file_path):
-        raise HTTPException(status_code=404, detail="File not found on server")
+    if not decl.file_path:
+        raise HTTPException(status_code=404, detail="No file was stored for this declaration")
+    if not os.path.exists(decl.file_path):
+        # The row survives in Postgres but the file itself is gone. On a host
+        # with an ephemeral filesystem that means a redeploy or restart wiped
+        # it — the extracted data is still intact, only the original scan is
+        # unrecoverable. Say that, instead of a bare "not found".
+        raise HTTPException(
+            status_code=410,
+            detail="Original file is no longer stored on the server "
+                   "(lost on a server restart). The extracted data is still available.",
+        )
 
     safe_name = decl.filename.replace('"', '')
     return FileResponse(
@@ -276,8 +291,24 @@ async def ceisa_callback(
         raise HTTPException(status_code=404, detail="Declaration not found")
 
     decl.status = DeclarationStatus.ACCEPTED if action == "accept" else DeclarationStatus.REJECTED
-    if body.get("notes"):
-        decl.notes = body["notes"]
+    # Notes are cleared on re-review too — otherwise a rejection reason from
+    # an earlier round would linger next to a later approval.
+    decl.notes = body.get("notes") or None
+
+    # Overwrite the stored CEISA response with the officer's decision. Without
+    # this the record keeps the original H2H acknowledgment ("ACCEPTED" as in
+    # "received"), so a rejected declaration still reads ACCEPTED in the UI.
+    previous = decl.ceisa_response if isinstance(decl.ceisa_response, dict) else {}
+    decl.ceisa_response = {
+        **previous,
+        "status": "ACCEPTED" if action == "accept" else "REJECTED",
+        "decision": "officer_review",
+        "reviewed_by": body.get("reviewed_by"),
+        "notes": body.get("notes"),
+        "reviewed_at": datetime.utcnow().isoformat() + "Z",
+        # Keep the submission acknowledgment visible for traceability.
+        "submission_ack": previous.get("status"),
+    }
     await db.commit()
     logger.info(f"✅ CEISA callback: declaration {declaration_id} → {decl.status.value}")
     return {"ok": True, "declaration_id": declaration_id, "status": decl.status.value}
@@ -302,8 +333,18 @@ async def get_file_by_key(
     decl = result.scalar_one_or_none()
     if not decl:
         raise HTTPException(status_code=404, detail="Declaration not found")
-    if not decl.file_path or not os.path.exists(decl.file_path):
-        raise HTTPException(status_code=404, detail="File not found on server")
+    if not decl.file_path:
+        raise HTTPException(status_code=404, detail="No file was stored for this declaration")
+    if not os.path.exists(decl.file_path):
+        # The row survives in Postgres but the file itself is gone. On a host
+        # with an ephemeral filesystem that means a redeploy or restart wiped
+        # it — the extracted data is still intact, only the original scan is
+        # unrecoverable. Say that, instead of a bare "not found".
+        raise HTTPException(
+            status_code=410,
+            detail="Original file is no longer stored on the server "
+                   "(lost on a server restart). The extracted data is still available.",
+        )
 
     safe_name = decl.filename.replace('"', '')
     return FileResponse(

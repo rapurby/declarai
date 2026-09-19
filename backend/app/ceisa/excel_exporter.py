@@ -284,6 +284,43 @@ def _header_confidence(declaration, field):
     return entry.get("confidence") if isinstance(entry, dict) else None
 
 
+def _col_index(columns: list, name: str) -> int:
+    """
+    Position of `name`, counting from 1 — taking the LAST match.
+
+    The official template repeats a few header names. In HEADER, "ASURANSI"
+    appears twice: once next to KODE ASURANSI (an insurance indicator we
+    don't populate) and again inside the monetary block beside FREIGHT and
+    FOB, which is where the amount belongs. Everywhere else the name is
+    unique, so last-match is the same as first-match and stays correct.
+    Raises ValueError when absent, matching list.index.
+    """
+    for i in range(len(columns) - 1, -1, -1):
+        if columns[i] == name:
+            return i + 1
+    raise ValueError(f"{name} not in columns")
+
+
+def _row_values(columns: list, row: dict) -> list:
+    """
+    Lay a name-keyed row out positionally.
+
+    A plain [row.get(c) for c in columns] writes the same value into every
+    column that shares a name — which silently put the insurance amount in
+    two different HEADER columns. Only the position _col_index picks is
+    filled; earlier duplicates stay blank.
+    """
+    values = [None] * len(columns)
+    for name, value in row.items():
+        if value is None:
+            continue
+        try:
+            values[_col_index(columns, name) - 1] = value
+        except ValueError:
+            continue  # key that isn't a real column (e.g. a scratch entry)
+    return values
+
+
 def _mark_cells(ws, row_idx: int, columns: list, marks: dict):
     """
     Colour the review-relevant cells of one written row.
@@ -295,7 +332,7 @@ def _mark_cells(ws, row_idx: int, columns: list, marks: dict):
     """
     for col_name, confidence in marks.items():
         try:
-            col_idx = columns.index(col_name) + 1
+            col_idx = _col_index(columns, col_name)
         except ValueError:
             continue
         cell = ws.cell(row=row_idx, column=col_idx)
@@ -411,7 +448,7 @@ def build_aju_excel(declaration, items: list, highlight: bool = True) -> Workboo
         "KODE VALUTA": g(declaration, "currency"),                       # NEEDS CODE MAPPING (ISO 4217 expected)
         "PACKAGE_TYPE_REF": None,
     })
-    ws.append([row.get(col) for col in HEADER_COLUMNS])
+    ws.append(_row_values(HEADER_COLUMNS, row))
     if highlight:
         # Only the columns we actually populate — the other ~90 are blank by
         # design and flagging them would drown out the real problems.

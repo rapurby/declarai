@@ -191,11 +191,16 @@ async def run_pipeline_bg(
             logger.info(f"✅ Declaration {declaration_id} done in {decl.processing_time_ms}ms")
 
         except Exception as e:
-            decl.status = DeclarationStatus.REJECTED
-            decl.notes = str(e)
+            # FLAGGED, not REJECTED: REJECTED means "customs turned this
+            # filing down". A crash in our own OCR/LLM pipeline is not a
+            # customs decision — marking it REJECTED made failed processing
+            # indistinguishable from a real rejection, both in the list view
+            # and in the stats.
+            decl.status = DeclarationStatus.FLAGGED
+            decl.notes = f"Pemrosesan otomatis gagal: {e}. Data bisa diisi manual di tampilan Excel."
             await db.commit()
             await _broadcast(declaration_id, {"type": "error", "message": str(e)})
-            logger.error(f"❌ Pipeline error for {declaration_id}: {e}")
+            logger.error(f"❌ Pipeline error for {declaration_id}: {e}", exc_info=True)
 
 async def log_audit(db: AsyncSession, declaration_id, operator_id, changes: dict):
     for field, (old_val, new_val) in changes.items():

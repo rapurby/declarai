@@ -184,6 +184,10 @@ export default function DeclarationDetail() {
   }
 
   const handleViewDoc = () => {
+    if (decl.file_available === false) {
+      toast.error('File asli sudah tidak tersimpan di server (hilang saat restart). Data hasil ekstraksi tetap utuh.')
+      return
+    }
     const url = declarationAPI.getFileUrl(decl.id)
     window.open(url, '_blank')
   }
@@ -947,10 +951,33 @@ export default function DeclarationDetail() {
           <div className={styles.tabPanel}>
             {decl.ceisa_response ? (
               <div className={styles.ceisaCard}>
-                <div className={styles.ceisaStatus + ' ' + (decl.ceisa_response.status === 'ACCEPTED' ? styles.accepted : styles.rejected)}>
-                  {decl.ceisa_response.status === 'ACCEPTED' ? <CheckCircle size={18} /> : <AlertTriangle size={18} />}
-                  {decl.ceisa_response.status}
-                </div>
+                {/* Two very different things used to render identically here:
+                    the H2H acknowledgment ("we received your filing") and the
+                    officer's actual decision. Showing the ack as a big green
+                    ACCEPTED made people think customs had already approved. */}
+                {(() => {
+                  const reviewed = decl.ceisa_response.decision === 'officer_review'
+                  const accepted = decl.ceisa_response.status === 'ACCEPTED'
+                  if (!reviewed) {
+                    return (
+                      <>
+                        <div className={styles.ceisaStatus} style={{ color: 'var(--info)' }}>
+                          <Clock size={18} /> Menunggu Keputusan Petugas
+                        </div>
+                        <p className={styles.ceisaMsg}>
+                          Dokumen sudah diterima sistem CEISA dan terdaftar, tapi petugas
+                          belum memutuskan. Status ini belum berarti disetujui.
+                        </p>
+                      </>
+                    )
+                  }
+                  return (
+                    <div className={styles.ceisaStatus + ' ' + (accepted ? styles.accepted : styles.rejected)}>
+                      {accepted ? <CheckCircle size={18} /> : <AlertTriangle size={18} />}
+                      {accepted ? 'Disetujui Petugas CEISA' : 'Ditolak Petugas CEISA'}
+                    </div>
+                  )
+                })()}
                 {decl.ceisa_response.registration_number && (
                   <div className={styles.regBlock}>
                     <div className={styles.regLabel}>Registration Number</div>

@@ -50,6 +50,9 @@ class DeclarationResponse(BaseModel):
     net_weight: Optional[float]
     shipper: Optional[str]
     shipper_identity: Optional[str]
+    # Set by the detail endpoint, not a DB column — False once the original
+    # upload has been wiped from the server's disk.
+    file_available: bool = True
     bl_number: Optional[str]
     invoice_number: Optional[str]
     invoice_date: Optional[str]
