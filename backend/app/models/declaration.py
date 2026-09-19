@@ -56,18 +56,6 @@ class Declaration(Base):
     session_id = Column(String, nullable=True, index=True)
 
     # ==============================
-    # Human-readable sequence number — "DCLR-0001", "DCLR-0002", ...
-    # Assigned atomically by a Postgres sequence at INSERT time (see
-    # alembic migration), so upload order is preserved even though `id`
-    # is a random UUID. Never set this from application code.
-    # ==============================
-    doc_seq = Column(Integer, nullable=True, unique=True, index=True)
-
-    @property
-    def doc_code(self):
-        return f"DCLR-{self.doc_seq:04d}" if self.doc_seq is not None else None
-
-    # ==============================
     # Relationships
     # ==============================
 
@@ -119,6 +107,12 @@ class Declaration(Base):
     # ==============================
 
     shipper = Column(String, nullable=True)
+
+    # Exporter's registration/tax number as printed on the invoice (e.g. the
+    # Korean 사업자등록번호). CEISA asks for it in ENTITAS.NOMOR IDENTITAS;
+    # before this column there was nowhere to put it, so the cell was stuck
+    # read-only even when the number was visible in the document.
+    shipper_identity = Column(String, nullable=True)
 
     bl_number = Column(String, nullable=True)
 
