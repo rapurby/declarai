@@ -436,6 +436,7 @@ export default function DeclarationDetail() {
               </div>
               <div className={styles.docHeadInfo}>
                 <div className={styles.badgeRow}>
+                  {decl.doc_code && <span className={styles.docCodeBadge}>{decl.doc_code}</span>}
                   <span className={'badge badge-' + decl.status}>{decl.status}</span>
                   {decl.document_type && decl.document_type !== 'unknown' && (
                     <span className={styles.docTypePill}>{decl.document_type.replace(/_/g, ' ')}</span>
