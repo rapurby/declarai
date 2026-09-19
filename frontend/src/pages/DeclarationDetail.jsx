@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, Fragment } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { CheckCircle, AlertTriangle, Send, Edit3, Save, X, ArrowLeft, Clock, FileText, Package, ShieldCheck, XCircle, ChevronLeft, ChevronRight, Table2, List, Download } from 'lucide-react'
 import { declarationAPI, getWsUrl } from '../services/api.js'
+import { useDeclarations } from '../hooks/useDeclarations.js'
 import { getUser, hasPermission } from '../utils/auth.js'
 import InsightPanel from '../components/InsightPanel.jsx'
 import ConfidenceField from '../components/ConfidenceField.jsx'
@@ -136,6 +137,11 @@ export default function DeclarationDetail() {
   const user = getUser()
   const canEdit = hasPermission(user?.role, 'submit')
   const canSubmit = hasPermission(user?.role, 'submit')
+
+  // Same "DCLR-0001" numbering as the board page (Declarations.jsx) —
+  // computed from upload order, not stored on the backend, so we need the
+  // full list here too just to find this declaration's rank in it.
+  const { data: allDecls } = useDeclarations({})
 
   const load = async () => {
     try {
@@ -283,6 +289,11 @@ export default function DeclarationDetail() {
 
   if (loading) return <div className={styles.loading}><div className={styles.spinner} /><span>Loading...</span></div>
   if (!decl) return null
+
+  const sortedByUpload = [...allDecls].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+  const docCodeRank = sortedByUpload.findIndex(d => d.id === decl.id)
+  const docCode = docCodeRank >= 0 ? `DCLR-${String(docCodeRank + 1).padStart(4, '0')}` : null
+
 
   // Excel-preview cells are editable under the same rule as Edit Fields /
   // line-item edits: needs submit permission, and a document already
@@ -436,7 +447,7 @@ export default function DeclarationDetail() {
               </div>
               <div className={styles.docHeadInfo}>
                 <div className={styles.badgeRow}>
-                  {decl.doc_code && <span className={styles.docCodeBadge}>{decl.doc_code}</span>}
+                  {docCode && <span className={styles.docCodeBadge}>{docCode}</span>}
                   <span className={'badge badge-' + decl.status}>{decl.status}</span>
                   {decl.document_type && decl.document_type !== 'unknown' && (
                     <span className={styles.docTypePill}>{decl.document_type.replace(/_/g, ' ')}</span>
