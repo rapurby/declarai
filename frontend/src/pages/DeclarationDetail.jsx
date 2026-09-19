@@ -65,7 +65,17 @@ function EditableCell({ display, raw, editable, onSave, className }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
 
-  if (!editable) return <span className={className}>{display}</span>
+  // Locked cells are always system-fixed codes (KODE KANTOR, SERI, role
+  // codes) — same value on every CDP declaration. Saying so on hover stops
+  // people wondering why one cell takes a click and its neighbour doesn't.
+  if (!editable) return (
+    <span
+      className={(className ? className + ' ' : '') + styles.xlsLocked}
+      title="Nilai tetap sistem — sama untuk semua deklarasi CDP, tidak bisa diubah"
+    >
+      {display}
+    </span>
+  )
 
   if (editing) {
     return (
@@ -399,7 +409,7 @@ export default function DeclarationDetail() {
     {
       seri: 2, kode: '705 (B/L)',
       nomor: decl.bl_number || '—', nomorRaw: decl.bl_number, nomorField: 'bl_number',
-      tanggal: '—', tanggalField: null,
+      tanggal: decl.bl_date || '—', tanggalRaw: decl.bl_date, tanggalField: 'bl_date',
     },
   ]
 

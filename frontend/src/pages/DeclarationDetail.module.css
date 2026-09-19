@@ -220,6 +220,10 @@
 
 .fvSheet { max-width: 640px; }
 
+/* System-fixed cell: dimmed and cursor-default, so it reads as deliberately
+   locked rather than as a cell that failed to respond to a click. */
+.xlsLocked { color: var(--text-muted); cursor: default; }
+
 .addItemBtn {
   margin-top: 12px;
   padding: 8px 16px;

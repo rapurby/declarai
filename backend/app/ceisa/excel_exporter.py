@@ -560,6 +560,7 @@ def build_aju_excel(declaration, items: list, highlight: bool = True) -> Workboo
             "SERI": seri,
             "KODE DOKUMEN": DOKUMEN_TYPE_CODE["bill_of_lading"],  # NEEDS CODE MAPPING (UN/EDIFACT guess)
             "NOMOR DOKUMEN": bl_number,
+            "TANGGAL DOKUMEN": g(declaration, "bl_date"),
         })
         ws.append([drow.get(col) for col in DOKUMEN_COLUMNS])
         if highlight:

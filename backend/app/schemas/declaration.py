@@ -54,6 +54,7 @@ class DeclarationResponse(BaseModel):
     # upload has been wiped from the server's disk.
     file_available: bool = True
     bl_number: Optional[str]
+    bl_date: Optional[str]
     invoice_number: Optional[str]
     invoice_date: Optional[str]
     port_of_loading: Optional[str]
@@ -124,6 +125,7 @@ class DeclarationUpdate(BaseModel):
     shipper: Optional[str] = None
     shipper_identity: Optional[str] = None
     bl_number: Optional[str] = None
+    bl_date: Optional[str] = None
     invoice_number: Optional[str] = None
     invoice_date: Optional[str] = None
     port_of_loading: Optional[str] = None

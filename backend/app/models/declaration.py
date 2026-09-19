@@ -116,6 +116,10 @@ class Declaration(Base):
 
     bl_number = Column(String, nullable=True)
 
+    # CEISA asks for a date on every DOKUMEN row, B/L included. Without this
+    # the B/L date cell showed "—" with no way to fill it in.
+    bl_date = Column(String, nullable=True)
+
     invoice_number = Column(String, nullable=True)
 
     invoice_date = Column(String, nullable=True)

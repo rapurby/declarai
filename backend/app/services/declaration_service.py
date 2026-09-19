@@ -147,6 +147,7 @@ async def run_pipeline_bg(
             decl.net_weight        = _gf(header, "net_weight")
             decl.country_of_origin = _gv(header, "country_of_origin")
             decl.bl_number         = _gv(header, "bl_number")
+            decl.bl_date           = _gv(header, "bl_date")
             decl.vessel_name       = _gv(header, "vessel_name")
             decl.voyage_number     = _gv(header, "voyage_number")
             decl.port_of_loading   = _gv(header, "port_of_loading")

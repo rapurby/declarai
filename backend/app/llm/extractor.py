@@ -33,6 +33,7 @@ Return this exact structure:
     "net_weight":       {{"value": null, "confidence": 0.0}},
     "country_of_origin":{{"value": null, "confidence": 0.0}},
     "bl_number":        {{"value": null, "confidence": 0.0}},
+    "bl_date":          {{"value": null, "confidence": 0.0}},
     "vessel_name":      {{"value": null, "confidence": 0.0}},
     "voyage_number":    {{"value": null, "confidence": 0.0}},
     "port_of_loading":  {{"value": null, "confidence": 0.0}},
