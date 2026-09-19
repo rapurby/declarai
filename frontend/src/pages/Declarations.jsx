@@ -49,8 +49,10 @@ const FILTER_OPTIONS = [
   { value: 'submitted',  label: 'Submitted / Done', tab: 'Submitted' },
 ]
 
-// Which board column a raw DB status belongs to — same grouping as
-// STATUS_GROUPS above, just inverted so we can bucket a declaration in O(1).
+// Which board column a raw DB status belongs to. Submitted/Accepted/Rejected
+// are still grouped together for the *filter tabs* (STATUS_GROUPS above —
+// unchanged), but get their own columns on the board itself so a CEISA
+// decision is visible at a glance instead of hiding inside "Submitted".
 const COLUMN_FOR_STATUS = {
   uploaded:   'processing',
   processing: 'processing',
@@ -58,17 +60,20 @@ const COLUMN_FOR_STATUS = {
   flagged:    'review',
   validated:  'ready',
   submitted:  'submitted',
-  accepted:   'submitted',
-  rejected:   'submitted',
+  accepted:   'accepted',
+  rejected:   'rejected',
 }
 
 // Left-to-right column order for the board view — mirrors the pipeline a
-// declaration moves through, same order as the filter tabs above.
+// declaration moves through: uploaded → reviewed → ready → sent to CEISA →
+// CEISA's decision.
 const BOARD_COLUMNS = [
   { key: 'processing', title: 'Processing',   variant: 'processing' },
   { key: 'review',     title: 'Needs Review', variant: 'review' },
   { key: 'ready',      title: 'Ready',        variant: 'ready' },
   { key: 'submitted',  title: 'Submitted',    variant: 'submitted' },
+  { key: 'accepted',   title: 'Accepted by CEISA', variant: 'accepted' },
+  { key: 'rejected',   title: 'Rejected by CEISA', variant: 'rejected' },
 ]
 
 export default function Declarations() {
@@ -98,6 +103,15 @@ export default function Declarations() {
     items: filtered.filter(d => COLUMN_FOR_STATUS[d.status] === col.key),
   }))
 
+  // "DCLR-0001" etc — purely a frontend display number, computed from the
+  // full (unfiltered) list ordered by created_at, so it reflects real
+  // upload order and stays the same across every filter tab. Not stored
+  // anywhere: if an earlier declaration is deleted, later numbers shift.
+  const docCodeById = {}
+  ;[...data]
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    .forEach((d, i) => { docCodeById[d.id] = `DCLR-${String(i + 1).padStart(4, '0')}` })
+
   const handleDelete = async (id, e) => {
     e.preventDefault()
     if (!confirm('Delete this declaration? This action cannot be undone.')) return
@@ -117,10 +131,17 @@ export default function Declarations() {
               <h1 className={styles.title}>Declarations</h1>
               <p className={styles.subtitle}>{data.length} total declaration{data.length !== 1 ? 's' : ''}</p>
             </div>
-            <div className={styles.searchWrap}>
-              <Search size={14} className={styles.searchIcon} />
-              <input className={styles.search} placeholder="Search by filename, HS code, consignee..."
-                value={search} onChange={e => setSearch(e.target.value)} />
+            <div className={styles.headerActions}>
+              <div className={styles.searchWrap}>
+                <Search size={14} className={styles.searchIcon} />
+                <input className={styles.search} placeholder="Search by filename, HS code, consignee..."
+                  value={search} onChange={e => setSearch(e.target.value)} />
+              </div>
+              {canUpload && (
+                <Link to="/upload" className={styles.headerUploadBtn}>
+                  <Upload size={14} /> Upload
+                </Link>
+              )}
             </div>
           </div>
 
@@ -161,6 +182,7 @@ export default function Declarations() {
                     <div className={styles.columnEmpty}>No declarations</div>
                   ) : col.items.map(d => (
                     <Link to={`/declarations/${d.id}`} key={d.id} className={styles.card}>
+                      <span className={styles.docCode}>{docCodeById[d.id] || '—'}</span>
                       <span className={styles.filename}>{d.filename}</span>
                       <span className={styles.cardRow}><span>HS Code</span><span className={styles.mono}>{d.hs_code || '—'}</span></span>
                       <span className={styles.cardRow}><span>Value</span><span className={styles.mono}>{d.currency} {d.declared_value?.toLocaleString() || '—'}</span></span>
