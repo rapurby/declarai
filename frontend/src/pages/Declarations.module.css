@@ -21,6 +21,18 @@
 .title    { font-size: 23px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.4px; }
 .subtitle { font-size: 13.5px; color: var(--text-muted); margin-top: 4px; }
 
+/* Header actions — search + persistent Upload button, side by side */
+.headerActions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+.headerUploadBtn {
+  display: inline-flex; align-items: center; gap: 7px; padding: 10px 18px;
+  background: var(--decl-primary); color: white; border-radius: 12px;
+  font-size: 13px; font-weight: 700; text-decoration: none; white-space: nowrap;
+  box-shadow: 0 3px 12px rgba(15,76,129,0.24);
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+.headerUploadBtn:hover { background: #15619f; transform: translateY(-1px); color: white; }
+
 /* Search */
 .searchWrap { position: relative; display: flex; align-items: center; }
 .searchIcon { position: absolute; left: 13px; color: var(--text-muted); pointer-events: none; }
@@ -71,22 +83,26 @@
 }
 .uploadLink:hover { background: #15619f; transform: translateY(-1px); color: white; }
 
-/* Board — status columns laid out side by side, Jira-style */
+/* Board — status columns laid out side by side, Jira-style, scrolls
+   horizontally so it works whether there are 4 or 6 columns. */
 .board {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: flex;
   gap: 16px;
-  align-items: start;
+  align-items: flex-start;
+  overflow-x: auto;
+  padding-bottom: 6px;
   animation: fadeInUp 0.4s cubic-bezier(0.16,1,0.3,1) both;
 }
 
-.column { display: flex; flex-direction: column; min-width: 0; }
+.column { display: flex; flex-direction: column; min-width: 240px; flex: 1 1 240px; }
 .columnHead { display: flex; align-items: center; gap: 8px; padding: 2px 4px 12px; }
 .columnDot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .dot_processing { background: var(--info); }
 .dot_review      { background: var(--warning); }
 .dot_ready        { background: var(--success); }
 .dot_submitted    { background: var(--decl-primary); }
+.dot_accepted     { background: var(--success); }
+.dot_rejected     { background: var(--danger); }
 .columnTitle { font-size: 13px; font-weight: 700; color: var(--text-primary); }
 .columnCount {
   font-size: 11px; font-weight: 700; color: var(--text-muted);
@@ -109,6 +125,12 @@
 .card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(15,23,42,0.09); }
 .card:hover .filename { transform: translateX(2px); }
 
+.docCode {
+  font-family: var(--font-mono); font-size: 10.5px; font-weight: 700;
+  color: var(--decl-primary); letter-spacing: 0.03em;
+  background: var(--decl-primary-soft); display: inline-flex; width: fit-content;
+  padding: 2px 7px; border-radius: 6px; margin-bottom: 2px;
+}
 .filename { font-size: 13.5px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: transform 0.2s cubic-bezier(0.16,1,0.3,1); display: inline-block; max-width: 100%; margin-bottom: 2px; }
 .cardRow  { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 11.5px; color: var(--text-muted); }
 .mono     { font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
@@ -136,13 +158,17 @@
 .chevron  { color: var(--text-muted); }
 
 @media (max-width: 1100px) {
-  .board { grid-template-columns: repeat(4, minmax(220px, 1fr)); overflow-x: auto; padding-bottom: 6px; }
+  .column { min-width: 210px; }
 }
 
 @media (max-width: 760px) {
   .search { width: 100%; }
   .headerTop { flex-direction: column; }
-  .board { grid-template-columns: 1fr; }
+  .headerActions { width: 100%; }
+  .searchWrap { flex: 1; }
+  .search { width: 100%; }
+  .board { flex-direction: column; overflow-x: visible; }
+  .column { min-width: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
