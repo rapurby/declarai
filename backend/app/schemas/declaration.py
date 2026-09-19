@@ -31,6 +31,7 @@ class DeclarationItemResponse(BaseModel):
 
 class DeclarationResponse(BaseModel):
     id: UUID
+    doc_code: Optional[str] = None
     filename: str
     file_type: Optional[str]
     status: DeclarationStatus
@@ -88,6 +89,7 @@ class DeclarationResponse(BaseModel):
 
 class DeclarationListItem(BaseModel):
     id: UUID
+    doc_code: Optional[str] = None
     filename: str
     status: DeclarationStatus
     document_type: Optional[DocumentType]
